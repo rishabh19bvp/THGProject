@@ -57,6 +57,10 @@ const statements = {
       (roll_number, case_id, variant, assessments_taken, option_chosen, justification, time_to_decision_ms, resubmitted, kind)
     VALUES (@roll_number, @case_id, @variant, @assessments_taken, @option_chosen, @justification, @time_to_decision_ms, 0, @kind)
   `),
+  // created_at is bumped on every resubmit too — it doubles as "timestamp of
+  // this attempt" (see hasFullyClosed/COMPLETED status in index.js, which
+  // compares it against the latest escalation submission to tell a genuine
+  // replay from a stale escalation row left over from a prior attempt).
   updateSubmission: db.prepare(`
     UPDATE submissions SET
       variant = @variant,
@@ -64,7 +68,8 @@ const statements = {
       option_chosen = @option_chosen,
       justification = @justification,
       time_to_decision_ms = @time_to_decision_ms,
-      resubmitted = 1
+      resubmitted = 1,
+      created_at = datetime('now')
     WHERE roll_number = @roll_number AND case_id = @case_id
   `),
   incrementHaltRevisit: db.prepare(`
@@ -84,8 +89,8 @@ const statements = {
       (roll_number, case_id, category, impact, urgency, priority, notify_group, description, narrative_option_chosen)
     VALUES (@roll_number, @case_id, @category, @impact, @urgency, @priority, @notify_group, @description, @narrative_option_chosen)
   `),
-  getEscalationSubmission: db.prepare(
-    'SELECT id FROM escalation_submissions WHERE roll_number = ? AND case_id = ? LIMIT 1'
+  getLatestEscalationSubmission: db.prepare(
+    'SELECT * FROM escalation_submissions WHERE roll_number = ? AND case_id = ? ORDER BY created_at DESC LIMIT 1'
   ),
 };
 

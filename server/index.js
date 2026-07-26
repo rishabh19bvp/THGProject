@@ -176,16 +176,12 @@ function buildVnBeats(caseObj, v, kind, lang) {
   beats.push({
     type: 'decision',
     timed: true,
-    portrait: 'alan_asking.jpg',
     prompt: v.decision_intro,
     options: v.options.map((o) => ({ id: o.id, text: o.text })),
   });
 
-  beats.push({
-    type: 'probe',
-    speaker: 'Alan',
-    portrait: 'alan_asking.jpg',
-  });
+  // no probe/justification step — the "why" is captured on the escalation
+  // form's own Description field, not asked twice in-scene.
 
   // practice cases resolve immediately (no halt gate, no reveal wait — same
   // rule as the classic flow's kind==='practice' branch) so there's no
@@ -233,82 +229,32 @@ app.get('/api/submissions/:roll', (req, res) => {
   res.json({ submitted_case_ids: rows.map((r) => r.case_id) });
 });
 
-// topic display names — one per halt case, matching this deployment's own
-// case titles 1:1 (no separate practice-case taxonomy exists here, see §1).
-const TOPIC_NAMES = {
-  1: 'THE QUIET FLOOR',
-  2: 'EVERY LIGHT AT ONCE',
-};
-
-const TOPIC_NAMES_MR = {};
-
-function localizeTopicName(topicId, lang) {
-  const names = lang === 'mr' ? TOPIC_NAMES_MR : TOPIC_NAMES;
-  return names[topicId] || `Topic ${topicId}`;
-}
-
 const haltCasesInOrder = cases
   .filter((c) => (c.kind || 'halt') === 'halt')
   .sort((a, b) => (a.topic_id || a.id) - (b.topic_id || b.id));
 
-const practiceCasesByTopic = new Map();
-cases
-  .filter((c) => c.kind === 'practice')
-  .forEach((c) => {
-    const list = practiceCasesByTopic.get(c.topic_id) || [];
-    list.push(c);
-    practiceCasesByTopic.set(c.topic_id, list);
-  });
-
-// a case is only fully done once BOTH the decision and its escalation form
-// are logged — a trainee who closes the tab right after submitting (before
-// ever reaching "Log it") must land back on this same case, not skip past it.
-function hasFullyClosed(roll, caseId) {
-  if (!statements.getSubmission.get(roll, caseId)) return false;
-  return !!statements.getEscalationSubmission.get(roll, caseId);
-}
-
-// Corporate self-paced model: no live facilitator gates a shared cohort
-// pace. Each trainee simply moves through halt cases in order at their own
-// speed — the first one they haven't yet fully closed out is "Tonight's
-// Call" for them, and it advances the moment their own escalation form
-// lands, independent of anyone else's progress.
-function computeCurrentCaseId(roll) {
-  const next = haltCasesInOrder.find((c) => !hasFullyClosed(roll, c.id));
-  return next ? next.id : null;
-}
-
-// GET /api/depot?roll=XX — one round trip renders the whole home screen (§4.3)
+// GET /api/depot?roll=XX — one round trip renders the whole home screen.
+// No sequential unlock: every case is visible and playable in any order, any
+// number of times. Per-case status for this roll:
+//   AVAILABLE   — never submitted (or being replayed after completion)
+//   PENDING_LOG — decision submitted, escalation form not yet reached
+//   COMPLETED   — both the decision and its escalation form are logged
 app.get('/api/depot', (req, res) => {
   const roll = req.query.roll || '';
   const lang = resolveLang(req);
   if (!roll) return res.status(400).json({ error: 'roll required' });
 
-  const currentCaseId = computeCurrentCaseId(roll);
-  let currentCall = null;
-  if (currentCaseId) {
-    const haltCase = casesById.get(currentCaseId);
-    const alreadySubmitted = !!statements.getSubmission.get(roll, currentCaseId);
-    currentCall = {
-      case_id: haltCase.id,
-      title: localizeTitle(haltCase, lang),
-      status: alreadySubmitted ? 'PENDING_LOG' : 'INCOMING',
-    };
-  }
-
-  // dossier folders are purely a case-file shelf for practice-case review in
-  // the original design; this deployment has none, so they're always open
-  // and empty — kept for visual/UI parity, not load-bearing for progression.
-  const folders = haltCasesInOrder.map((c) => {
-    const topicId = c.topic_id || c.id;
-    const ownCases = practiceCasesByTopic.get(topicId) || [];
-    const reviewedCount = ownCases.filter((pc) => !!statements.getSubmission.get(roll, pc.id)).length;
-    return {
-      topic_id: topicId,
-      title: localizeTopicName(topicId, lang),
-      state: 'OPEN',
-      progress: { reviewed: reviewedCount, total: ownCases.length },
-    };
+  const casesOut = haltCasesInOrder.map((c) => {
+    const submission = statements.getSubmission.get(roll, c.id);
+    let status = 'AVAILABLE';
+    if (submission) {
+      // a replay bumps submission.created_at (see updateSubmission) — only an
+      // escalation logged AT OR AFTER that counts as closing THIS attempt, so
+      // a stale escalation row from a prior playthrough can't fake COMPLETED.
+      const escalation = statements.getLatestEscalationSubmission.get(roll, c.id);
+      status = escalation && escalation.created_at >= submission.created_at ? 'COMPLETED' : 'PENDING_LOG';
+    }
+    return { case_id: c.id, title: localizeTitle(c, lang), status };
   });
 
   const submissions = statements.getSubmissionsForRoll.all(roll);
@@ -333,29 +279,7 @@ app.get('/api/depot', (req, res) => {
     })
     .filter(Boolean);
 
-  res.json({ current_call: currentCall, folders, log });
-});
-
-// GET /api/folder/:topicId — practice case list for a topic. Always empty in
-// this deployment (no practice cases exist yet), kept so the Depot's
-// case-file panel has somewhere to fetch from without a 404.
-app.get('/api/folder/:topicId', (req, res) => {
-  const topicId = parseInt(req.params.topicId, 10);
-  const roll = req.query.roll || '';
-  const lang = resolveLang(req);
-  const exists = haltCasesInOrder.some((c) => (c.topic_id || c.id) === topicId);
-  if (!exists) return res.status(404).json({ error: 'topic not found' });
-
-  const ownCases = practiceCasesByTopic.get(topicId) || [];
-  res.json({
-    state: 'OPEN',
-    cases: ownCases.map((c) => ({
-      id: c.id,
-      title: localizeTitle(c, lang),
-      label: null,
-      reviewed: !!statements.getSubmission.get(roll, c.id),
-    })),
-  });
+  res.json({ cases: casesOut, log });
 });
 
 // 6.2 — submit

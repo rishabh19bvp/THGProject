@@ -61,40 +61,37 @@ function SignIn({ strings, onSignedIn }) {
   );
 }
 
-// Kabir's model: exactly one primary surface, and tonight's objective is
-// always the single biggest thing on it.
-function ObjectiveCard({ call, strings, onTakeCall, onResumeLog }) {
-  if (!call) {
+// No sequential unlock — every case is visible and playable in any order,
+// any number of times. Status just tells the trainee where they left off.
+function CaseCard({ c, onPlay, onResume }) {
+  if (c.status === 'PENDING_LOG') {
     return (
       <div className="corp-card">
-        <p className="corp-card-title">{strings.objective_none_line1}</p>
-        <p className="corp-card-body">{strings.objective_none_line2}</p>
-      </div>
-    );
-  }
-
-  // PENDING_LOG: the decision was already submitted (e.g. tab closed right
-  // after committing) but the escalation form was never reached — resume
-  // straight into the debrief instead of starting the case over.
-  if (call.status === 'PENDING_LOG') {
-    return (
-      <div className="corp-card">
-        <span className="corp-badge corp-badge-pending">{strings.depot_pending_label}</span>
-        <p className="corp-card-title">{call.title}</p>
-        <p className="corp-card-body">{strings.objective_pending_text}</p>
-        <button type="button" className="escalation-btn-primary" onClick={() => onResumeLog(call.case_id)}>
-          {strings.objective_resolved_button}
+        <span className="corp-badge corp-badge-pending">Awaiting debrief</span>
+        <p className="corp-card-title">{c.title}</p>
+        <button type="button" className="escalation-btn-primary" onClick={() => onResume(c.case_id)}>
+          Resume
         </button>
       </div>
     );
   }
-
   return (
     <div className="corp-card">
-      <p className="corp-card-label">{strings.objective_incoming_label}</p>
-      <p className="corp-card-title">{call.title}</p>
-      <button type="button" className="escalation-btn-primary" onClick={() => onTakeCall(call.case_id)}>
-        {strings.objective_incoming_button}
+      <p className="corp-card-title">{c.title}</p>
+      <button type="button" className="escalation-btn-primary" onClick={() => onPlay(c.case_id)}>
+        Play
+      </button>
+    </div>
+  );
+}
+
+function CompletedCard({ c, onPlay }) {
+  return (
+    <div className="corp-card">
+      <span className="corp-badge corp-badge-resolved">Completed</span>
+      <p className="corp-card-title">{c.title}</p>
+      <button type="button" className="escalation-btn-secondary" onClick={() => onPlay(c.case_id)}>
+        Play again
       </button>
     </div>
   );
@@ -135,9 +132,11 @@ function HelpCard({ strings, mentorLine }) {
   );
 }
 
-function DepotHome({ depot, strings, onTakeCall, onResumeLog, onSignOut, muted, onToggleMute, lang, onToggleLang }) {
+function DepotHome({ depot, strings, onPlay, onResume, onSignOut, muted, onToggleMute, lang, onToggleLang }) {
   const [showLog, setShowLog] = useState(false);
   const mentorLine = weeklyMentorLine(strings.bhau_depot_lines);
+  const available = depot.cases.filter((c) => c.status !== 'COMPLETED');
+  const completed = depot.cases.filter((c) => c.status === 'COMPLETED');
 
   return (
     <>
@@ -158,7 +157,21 @@ function DepotHome({ depot, strings, onTakeCall, onResumeLog, onSignOut, muted, 
       </div>
 
       <div className="corp-container">
-        <ObjectiveCard call={depot.current_call} strings={strings} onTakeCall={onTakeCall} onResumeLog={onResumeLog} />
+        <p className="corp-matrix-heading" style={{ marginTop: 0 }}>Cases</p>
+        {available.length === 0 ? (
+          <p className="corp-empty">Nothing left to play — see Completed below.</p>
+        ) : (
+          available.map((c) => <CaseCard key={c.case_id} c={c} onPlay={onPlay} onResume={onResume} />)
+        )}
+
+        {completed.length > 0 && (
+          <>
+            <p className="corp-matrix-heading">Completed</p>
+            {completed.map((c) => (
+              <CompletedCard key={c.case_id} c={c} onPlay={onPlay} />
+            ))}
+          </>
+        )}
 
         <div className="corp-drawer-tabs">
           <button type="button" className="corp-drawer-tab" onClick={() => setShowLog((v) => !v)}>
@@ -266,8 +279,8 @@ export default function Depot() {
           <DepotHome
             depot={depot}
             strings={strings}
-            onTakeCall={(caseId) => startVN(caseId)}
-            onResumeLog={(caseId) => gotoRevealDirect(state.roll, caseId)}
+            onPlay={(caseId) => startVN(caseId)}
+            onResume={(caseId) => gotoRevealDirect(state.roll, caseId)}
             onSignOut={handleNotYou}
             muted={muted}
             onToggleMute={toggleMute}

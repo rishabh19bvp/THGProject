@@ -21,7 +21,6 @@ import StatusPanel from '../components/StatusPanel';
 
 const DECISION_WINDOW_MS = 90000;
 const ASSESSMENT_DEDUCTION_MS = 15000;
-const PROBE_TIMER_MS = 60000;
 // Corporate self-paced model: reveal unlocks the instant this trainee's own
 // submission lands (no facilitator gate to wait on), so this only needs to
 // bridge the brief gap between advancing to the halt beat and the
@@ -45,7 +44,6 @@ export default function VNGame({ caseId, roll, startAtHalt }) {
   const [selectedOption, setSelectedOption] = useState(null);
   const [confirming, setConfirming] = useState(false);
   const [decisionForced, setDecisionForced] = useState(false);
-  const [probeDraft, setProbeDraft] = useState('');
   const [haltStep, setHaltStep] = useState(0);
   const [haltUnlocked, setHaltUnlocked] = useState(false);
   const [haltSavingChip, setHaltSavingChip] = useState(false);
@@ -53,8 +51,6 @@ export default function VNGame({ caseId, roll, startAtHalt }) {
 
   const timedSegmentRef = useRef({ started: false, deadline: null });
   const dispatchStartRef = useRef(null);
-  const probeDeadlineRef = useRef(null);
-  const commitInfoRef = useRef(null);
   const haltRevisitTrackedRef = useRef(false);
   // the scene bg in effect when the assessment menu was entered — assessment
   // results can borrow a closer-in shot (e.g. a dashboard close-up) and this
@@ -78,7 +74,6 @@ export default function VNGame({ caseId, roll, startAtHalt }) {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [caseId, roll]);
-
 
   function toggleMute() {
     const next = !muted;
@@ -155,10 +150,6 @@ export default function VNGame({ caseId, roll, startAtHalt }) {
     if (nextBeat.type === 'assessment_menu' || nextBeat.type === 'decision') {
       startTimedSegmentIfNeeded();
     }
-    if (nextBeat.type === 'probe') {
-      probeDeadlineRef.current = Date.now() + PROBE_TIMER_MS;
-      forceRender((n) => n + 1);
-    }
   }
 
   function handleAssessmentPick(id) {
@@ -190,11 +181,46 @@ export default function VNGame({ caseId, roll, startAtHalt }) {
     setDecisionForced(true);
   }
 
+  // The decision is the whole data capture now — there's no separate
+  // "why that one?" probe step asking for a justification in-scene, since
+  // the escalation form's own Description field is where that gets written
+  // (build spec §5, no double-asking). Submission fires the moment the
+  // decision is committed, not after a later beat.
   function commitOption(id) {
     const now = Date.now();
     const startedAt = timedSegmentRef.current.deadline - DECISION_WINDOW_MS;
     const timeToDecisionMs = Math.min(Math.max(now - startedAt, 0), DECISION_WINDOW_MS);
-    commitInfoRef.current = { option: id, timeToDecisionMs };
+
+    const payload = {
+      roll_number: roll,
+      case_id: caseId,
+      assessments_taken: assessmentsTaken,
+      option_chosen: id,
+      justification: '',
+      time_to_decision_ms: timeToDecisionMs,
+    };
+
+    const items = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]');
+    items.push(payload);
+    localStorage.setItem(OUTBOX_KEY, JSON.stringify(items));
+
+    function clearFromOutbox() {
+      const remaining = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]').filter(
+        (p) => !(p.roll_number === payload.roll_number && p.case_id === payload.case_id)
+      );
+      localStorage.setItem(OUTBOX_KEY, JSON.stringify(remaining));
+    }
+    submitWithResilience(payload).then((result) => {
+      if (result.ok) clearFromOutbox();
+    });
+
+    // practice cases resolve immediately — no halt gate, no anti-cheat layer
+    // (phase2_design.md §1.2). There's no halt beat in the script at all for
+    // these (see buildVnBeats), so we hand off straight to the Reveal screen.
+    if (script.kind === 'practice') {
+      gotoRevealDirect(roll, caseId);
+      return;
+    }
     advanceBeat();
   }
 
@@ -219,53 +245,9 @@ export default function VNGame({ caseId, roll, startAtHalt }) {
     commitOption(selectedOption);
   }
 
-  async function submitProbe() {
-    const payload = {
-      roll_number: roll,
-      case_id: caseId,
-      assessments_taken: assessmentsTaken,
-      option_chosen: commitInfoRef.current ? commitInfoRef.current.option : null,
-      justification: probeDraft,
-      time_to_decision_ms: commitInfoRef.current ? commitInfoRef.current.timeToDecisionMs : 0,
-    };
-
-    const items = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]');
-    items.push(payload);
-    localStorage.setItem(OUTBOX_KEY, JSON.stringify(items));
-
-    function clearFromOutbox() {
-      const remaining = JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]').filter(
-        (p) => !(p.roll_number === payload.roll_number && p.case_id === payload.case_id)
-      );
-      localStorage.setItem(OUTBOX_KEY, JSON.stringify(remaining));
-    }
-
-    // practice cases resolve immediately — no halt gate, no anti-cheat layer
-    // (phase2_design.md §1.2). There's no halt beat in the script at all for
-    // these (see buildVnBeats), so we hand off straight to the Reveal screen.
-    if (script.kind === 'practice') {
-      submitWithResilience(payload).then((result) => {
-        if (result.ok) clearFromOutbox();
-      });
-      gotoRevealDirect(roll, caseId);
-      return;
-    }
-
-    advanceBeat();
-
-    submitWithResilience(payload).then((result) => {
-      if (result.ok) clearFromOutbox();
-    });
-  }
-
-  function handleProbeExpire() {
-    submitProbe();
-  }
-
   const showTimer =
     timedSegmentRef.current.started &&
     (beat.type === 'assessment_menu' || beat.type === 'decision');
-  const showProbeTimer = beat.type === 'probe';
   // beat.scene distinguishes actual scene-description narration from other
   // narration — status data only makes sense once the scene is actually on screen.
   const showStatusPanel = (beat.type === 'narration' && beat.scene) || beat.type === 'assessment_menu';
@@ -309,11 +291,8 @@ export default function VNGame({ caseId, roll, startAtHalt }) {
           onExpire={handleDecisionExpire}
         />
       )}
-      {showProbeTimer && probeDeadlineRef.current && (
-        <VNTimer deadline={probeDeadlineRef.current} totalMs={PROBE_TIMER_MS} onExpire={handleProbeExpire} />
-      )}
 
-      {(beat.type === 'speech' || beat.type === 'probe' || beat.type === 'decision') && (
+      {beat.type === 'speech' && (
         <Portrait src={beat.portrait} visible />
       )}
 
@@ -361,26 +340,6 @@ export default function VNGame({ caseId, roll, startAtHalt }) {
           ]}
           onChoice={handleCommitConfirm}
         />
-      )}
-
-      {beat.type === 'probe' && (
-        <div className="vn-probe-wrap">
-          <DialogueBox
-            speaker="Alan"
-            text={`${strings.probe_line1}\n"${strings.probe_question}"`}
-            onAdvance={() => {}}
-          />
-          <textarea
-            className="vn-probe-input"
-            maxLength={500}
-            placeholder={strings.probe_placeholder}
-            value={probeDraft}
-            onChange={(e) => setProbeDraft(e.target.value)}
-          />
-          <button type="button" className="btn btn-primary vn-probe-submit" onClick={submitProbe}>
-            {strings.probe_submit_button}
-          </button>
-        </div>
       )}
 
       {beat.type === 'halt' && (

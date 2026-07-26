@@ -84,6 +84,9 @@ const statements = {
       (roll_number, case_id, category, impact, urgency, priority, notify_group, description, narrative_option_chosen)
     VALUES (@roll_number, @case_id, @category, @impact, @urgency, @priority, @notify_group, @description, @narrative_option_chosen)
   `),
+  getEscalationSubmission: db.prepare(
+    'SELECT id FROM escalation_submissions WHERE roll_number = ? AND case_id = ? LIMIT 1'
+  ),
 };
 
 module.exports = { db, statements };

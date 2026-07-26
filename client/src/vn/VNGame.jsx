@@ -30,7 +30,7 @@ const HALT_POLL_MS = 2000;
 const DONE_ID = '__vn_done__';
 const OUTBOX_KEY = 'quietfloor:outbox';
 
-export default function VNGame({ caseId, roll, startAtHalt, onExit }) {
+export default function VNGame({ caseId, roll, startAtHalt }) {
   const strings = useStrings();
   const { gotoRevealDirect } = useGame();
   const isPortrait = usePortrait();
@@ -394,21 +394,15 @@ export default function VNGame({ caseId, roll, startAtHalt, onExit }) {
           {haltStep === 2 && (
             <>
               {haltSavingChip && <span className="saving-chip vn-saving-chip">{strings.halt_saving_chip}</span>}
+              {/* build spec §5.1 — the debrief (and the escalation form after
+                  it) is never skipped, so there's no "return to depot"
+                  bypass here anymore: once your submission lands (near-
+                  instant under the self-paced model), the only way forward
+                  is into the debrief. */}
               <DialogueBox
-                text=""
-                choices={[
-                  ...(haltUnlocked
-                    ? [{ id: 'ready', label: strings.halt_ready_button }]
-                    : []),
-                  { id: 'exit', label: strings.vn_return_to_depot },
-                ]}
-                onChoice={(id) => {
-                  if (id === 'ready') {
-                    gotoRevealDirect(roll, caseId);
-                    return;
-                  }
-                  onExit();
-                }}
+                text={haltUnlocked ? '' : strings.loading_state}
+                choices={haltUnlocked ? [{ id: 'ready', label: strings.halt_ready_button }] : undefined}
+                onChoice={haltUnlocked ? () => gotoRevealDirect(roll, caseId) : undefined}
               />
             </>
           )}

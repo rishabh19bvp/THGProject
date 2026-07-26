@@ -8,7 +8,7 @@ import EscalationForm from './screens/EscalationForm';
 import TeacherDashboard from './teacher/Dashboard';
 import VNGame from './vn/VNGame';
 
-function screenFor(phase, state, gotoDepot) {
+function screenFor(phase, state) {
   switch (phase) {
     case 'REVEAL':
       return <Reveal />;
@@ -20,7 +20,6 @@ function screenFor(phase, state, gotoDepot) {
           caseId={state.caseId}
           roll={state.roll}
           startAtHalt={state.vnStartAtHalt}
-          onExit={gotoDepot}
         />
       );
     case 'ENTRY':
@@ -30,7 +29,7 @@ function screenFor(phase, state, gotoDepot) {
 }
 
 function StudentScreen() {
-  const { state, gotoDepot } = useGame();
+  const { state } = useGame();
   const strings = useStrings();
 
   if (state.phase === 'LOADING') {
@@ -40,14 +39,14 @@ function StudentScreen() {
   // VN is a full-screen fixed-stage game canvas — it must not be wrapped in
   // the classic app-shell crossfade (that's for the Depot/Reveal screens).
   if (state.phase === 'VN') {
-    return screenFor('VN', state, gotoDepot);
+    return screenFor('VN', state);
   }
 
   // #5 — 250ms crossfade between screens (§2.2). Keying on phase remounts
   // the wrapper so the animation replays on every transition.
   return (
     <div key={state.phase} className="phase-transition">
-      {screenFor(state.phase, state, gotoDepot)}
+      {screenFor(state.phase, state)}
     </div>
   );
 }

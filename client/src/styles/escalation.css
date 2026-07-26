@@ -97,7 +97,10 @@
 
 .escalation-shell .escalation-select,
 .escalation-shell .escalation-textarea,
-.escalation-shell .escalation-input {
+.escalation-shell .escalation-input,
+.corp-shell .escalation-select,
+.corp-shell .escalation-textarea,
+.corp-shell .escalation-input {
   width: 100%;
   min-height: 0;
   background: #ffffff;
@@ -112,7 +115,10 @@
 
 .escalation-shell .escalation-select:focus,
 .escalation-shell .escalation-textarea:focus,
-.escalation-shell .escalation-input:focus {
+.escalation-shell .escalation-input:focus,
+.corp-shell .escalation-select:focus,
+.corp-shell .escalation-textarea:focus,
+.corp-shell .escalation-input:focus {
   outline: none;
   border-color: #2d7dd2;
   box-shadow: 0 0 0 2px rgba(45, 125, 210, 0.15);

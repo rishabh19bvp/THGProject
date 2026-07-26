@@ -260,13 +260,21 @@ cases
     practiceCasesByTopic.set(c.topic_id, list);
   });
 
+// a case is only fully done once BOTH the decision and its escalation form
+// are logged — a trainee who closes the tab right after submitting (before
+// ever reaching "Log it") must land back on this same case, not skip past it.
+function hasFullyClosed(roll, caseId) {
+  if (!statements.getSubmission.get(roll, caseId)) return false;
+  return !!statements.getEscalationSubmission.get(roll, caseId);
+}
+
 // Corporate self-paced model: no live facilitator gates a shared cohort
 // pace. Each trainee simply moves through halt cases in order at their own
-// speed — the first one they haven't yet submitted is "Tonight's Call" for
-// them, and it advances the moment their own submission lands, independent
-// of anyone else's progress.
+// speed — the first one they haven't yet fully closed out is "Tonight's
+// Call" for them, and it advances the moment their own escalation form
+// lands, independent of anyone else's progress.
 function computeCurrentCaseId(roll) {
-  const next = haltCasesInOrder.find((c) => !statements.getSubmission.get(roll, c.id));
+  const next = haltCasesInOrder.find((c) => !hasFullyClosed(roll, c.id));
   return next ? next.id : null;
 }
 
@@ -280,7 +288,12 @@ app.get('/api/depot', (req, res) => {
   let currentCall = null;
   if (currentCaseId) {
     const haltCase = casesById.get(currentCaseId);
-    currentCall = { case_id: haltCase.id, title: localizeTitle(haltCase, lang), status: 'INCOMING' };
+    const alreadySubmitted = !!statements.getSubmission.get(roll, currentCaseId);
+    currentCall = {
+      case_id: haltCase.id,
+      title: localizeTitle(haltCase, lang),
+      status: alreadySubmitted ? 'PENDING_LOG' : 'INCOMING',
+    };
   }
 
   // dossier folders are purely a case-file shelf for practice-case review in

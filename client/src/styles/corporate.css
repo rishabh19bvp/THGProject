@@ -1,0 +1,287 @@
+/* Corporate light theme — sign-in, home (Depot), and the debrief (Reveal)
+   all share this visual language with the escalation form (escalation.css):
+   white background, thin bordered cards, blue accent, no game chrome
+   (no paper texture, stamps, or folder art). Fills the same fixed 16:9
+   Stage the VN uses, same as .escalation-shell/.landscape-panel. */
+
+.corp-shell {
+  position: absolute;
+  inset: 0;
+  background: #f5f6f8;
+  color: #1a1a1a;
+  overflow-y: auto;
+}
+
+.corp-topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.corp-icon-btn {
+  background: #ffffff;
+  border: 1px solid #d5d9dd;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: #444;
+  cursor: pointer;
+}
+
+.corp-icon-btn:hover {
+  background: #f5f6f8;
+}
+
+.corp-container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 28px 20px 40px;
+}
+
+/* ---- sign-in ---- */
+.corp-signin-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 70%;
+  padding: 20px;
+}
+
+.corp-signin-card {
+  width: 100%;
+  max-width: 360px;
+  background: #ffffff;
+  border: 1px solid #d5d9dd;
+  border-radius: 8px;
+  padding: 32px;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.corp-signin-title {
+  margin: 0 0 6px;
+  font-size: 22px;
+  font-weight: 700;
+  font-family: var(--font-body);
+  color: #1a1a1a;
+}
+
+.corp-signin-tagline {
+  margin: 0 0 24px;
+  font-size: 14px;
+  color: #666;
+}
+
+.corp-signin-card .escalation-label {
+  text-align: left;
+}
+
+/* ---- cards (objective / debrief) ---- */
+.corp-card {
+  background: #ffffff;
+  border: 1px solid #d5d9dd;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.corp-card-label {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #2d7dd2;
+}
+
+.corp-card-title {
+  margin: 0 0 6px;
+  font-size: 19px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.corp-card-body {
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: #666;
+}
+
+.corp-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.corp-badge-pending {
+  background: #fff3e0;
+  color: #b26a00;
+}
+
+.corp-badge-resolved {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+/* ---- panels (shift log) ---- */
+.corp-panel {
+  background: #ffffff;
+  border: 1px solid #d5d9dd;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+
+.corp-panel-heading {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a8f94;
+}
+
+.corp-empty {
+  color: #8a8f94;
+  font-size: 14px;
+  margin: 0;
+}
+
+.corp-drawer-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.corp-drawer-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid #d5d9dd;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: #444;
+  cursor: pointer;
+}
+
+.corp-drawer-tab:hover {
+  background: #f5f6f8;
+}
+
+.corp-log-entry {
+  padding: 10px 0;
+  border-bottom: 1px solid #eef0f2;
+}
+
+.corp-log-entry:last-child {
+  border-bottom: none;
+}
+
+.corp-log-title {
+  margin: 0 0 2px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.corp-log-choice {
+  margin: 0 0 4px;
+  color: #8a8f94;
+  font-size: 13px;
+}
+
+.corp-log-justification {
+  margin: 0 0 4px;
+  font-style: italic;
+  color: #666;
+  font-size: 13px;
+}
+
+.corp-log-outcome {
+  margin: 0;
+  font-size: 13px;
+  color: #333;
+}
+
+/* ---- help card ---- */
+.corp-help-card {
+  background: #ffffff;
+  border: 1px solid #d5d9dd;
+  border-radius: 8px;
+  padding: 14px 16px;
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.corp-help-label {
+  font-weight: 600;
+  font-size: 13px;
+  color: #2d7dd2;
+}
+
+.corp-help-bio {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #444;
+  line-height: 1.5;
+}
+
+.corp-help-line {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #666;
+  font-style: italic;
+}
+
+/* ---- debrief (Reveal) outcome blocks ---- */
+.corp-outcome-block {
+  margin: 16px 0;
+  padding: 16px;
+  background: #f5f6f8;
+  border: 1px solid #d5d9dd;
+  border-radius: 8px;
+}
+
+.corp-outcome-label {
+  margin: 0 0 6px;
+  color: #8a8f94;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.corp-concept-line {
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.corp-matrix-heading {
+  margin: 24px 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.corp-variant-block {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #eef0f2;
+}
+
+.corp-variant-block:last-child {
+  border-bottom: none;
+}
+
+.corp-variant-label {
+  color: #8a8f94;
+  font-size: 13px;
+  font-weight: 600;
+}

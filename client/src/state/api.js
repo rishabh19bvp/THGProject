@@ -65,12 +65,6 @@ export async function fetchDepot(roll) {
   return res.json();
 }
 
-export async function fetchFolder(topicId, roll) {
-  const res = await fetch(`/api/folder/${topicId}?roll=${encodeURIComponent(roll)}&lang=${getLang()}`);
-  if (!res.ok) throw new Error('folder fetch failed');
-  return res.json();
-}
-
 export async function fetchSubmittedCaseIds(roll) {
   const res = await fetch(`/api/submissions/${encodeURIComponent(roll)}`);
   if (!res.ok) return [];

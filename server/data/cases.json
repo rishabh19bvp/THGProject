@@ -1,0 +1,100 @@
+[
+  {
+    "id": 1,
+    "title": "The Quiet Floor",
+    "image": "floor_wide.jpg",
+    "kind": "halt",
+    "topic_id": 1,
+    "variants": [
+      {
+        "variant": 1,
+        "dispatch": [
+          "21:42. Zone 4 AutoStore grid.",
+          "Three failed retrieval attempts in the last six minutes.",
+          "No hard fault code. No stoppage.",
+          "Website and checkout dashboards: all green.",
+          "Peak trading opens in three days."
+        ],
+        "scene": "Most of the floor is running clean — robots gliding along the grid, retrievals landing on schedule. In Zone 4, two units are pausing mid-retrieval and retrying instead of completing cleanly. A short line of totes is waiting on the conveyor a little longer than it should. No alarms are sounding. Nothing here reads as an emergency. It could be nothing.",
+        "scene_image_overrides": { "1": "zone4_anomaly.jpg" },
+        "situation_panel": [
+          { "label": "Zone 4 status", "value": "Intermittent retry faults, no stoppage" },
+          { "label": "Digital dashboards", "value": "All green — no customer-facing errors" },
+          { "label": "Time since first fault", "value": "6 minutes" },
+          { "label": "Recent change", "value": "Unconfirmed" }
+        ],
+        "assessments": [
+          { "id": 1, "label": "Check the other zones", "result": "Zones 1, 2, 3, and 5 are running clean. Only Zone 4 shows this pattern — for now." },
+          { "id": 2, "label": "Check the digital dashboards", "result": "Website, checkout, and order confirmation: all green. A customer browsing right now would see nothing wrong.", "image": "dashboards_green.jpg" },
+          { "id": 3, "label": "Check the change log", "result": "A firmware update was pushed to the Zone 4 robots two hours ago, ahead of peak-season load testing." }
+        ],
+        "bhau_scene_line": "Floor's quiet. Screens are quiet. Doesn't mean nothing's happening — it just means nothing's shown itself yet.",
+        "decision_intro": "Alan: \"Floor says it's a blip. Screens say we're fine. Three days out from the biggest weekend of the year. What do you do?\"",
+        "options": [
+          { "id": "A", "text": "Keep an eye on it yourself through the shift — it's one zone, nothing's stopped, no need to make noise yet." },
+          { "id": "B", "text": "Message the WMS engineer yourself, informally — ask them to take a look when they get a chance. No need to log anything." },
+          { "id": "C", "text": "Raise it now as a Major Incident, through the proper process, even though nothing customer-facing is broken yet." }
+        ],
+        "halt_prelude": "Whatever you chose, the shift moves on. Zone 4 keeps doing what Zone 4 was doing.",
+        "halt_line": "Handover complete. What Zone 4 becomes — that's for the debrief.",
+        "reveal": {
+          "setup": "By the early hours, the pattern in Zone 4 either stayed contained or didn't — and what happened next came down to what got raised, and when.",
+          "outcomes": {
+            "A": "By 4 a.m., the same fault reaches Zone 5 — identical robots, identical firmware, just on a delay. Totes back up faster than the floor can clear by hand. The peak-readiness call opens with 'we have a problem' instead of 'we caught something last night.' Identical hardware on identical firmware tends to fail identically, on its own timeline — a quiet zone is rarely only one zone.",
+            "B": "The WMS engineer looks at it alone and rolls back part of the firmware change without telling anyone else on shift. Zone 4 clears — and Zone 2, which was fine ten minutes earlier, breaks, because nobody else knew a change had been made. The floor now has two problems and no one holding the full picture. An uncoordinated fix during a live situation removes the one thing an incident actually needs: someone who knows everything that's been tried.",
+            "C": "The Major Incident is logged at 21:50. The WMS engineer, the floor lead, and the peak-readiness owner are looped in within the hour, while it's still one small zone. The firmware push is identified and paused platform-wide before it reaches Zone 5. Resolved before the next shift starts. This is exactly what the formal channel is for — not a siren, a way to get the right people looking at a small problem while it's still small."
+          },
+          "concept": "MAJOR INCIDENT ESCALATION doesn't wait for visible damage. The real criteria: does this need another team, could it reach a customer, has it gone unresolved for a while — and Zone 4, at 21:42, already met one of the three."
+        }
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "title": "Every Light at Once",
+    "image": "floor_alarm.jpg",
+    "kind": "halt",
+    "topic_id": 2,
+    "variants": [
+      {
+        "variant": 1,
+        "dispatch": [
+          "21:45. Zones 2 and 3.",
+          "Every unit reporting a fault alert within the same ninety seconds.",
+          "Floor display is a wall of red.",
+          "Two floor staff already gathered at the panel."
+        ],
+        "scene": "It looks like the big one. Alarms audible across the section. More noise, all at once, than Zone 4 ever made three nights ago.",
+        "situation_panel": [
+          { "label": "Zones 2 & 3 status", "value": "Simultaneous fault alerts, all units" },
+          { "label": "Floor display", "value": "Wall of red" },
+          { "label": "Maintenance calendar", "value": "Unconfirmed" },
+          { "label": "Digital dashboards", "value": "All green" }
+        ],
+        "assessments": [
+          { "id": 1, "label": "Check the maintenance calendar", "result": "This exact pattern is logged every Tuesday at this time — a scheduled recalibration cycle across Zones 2 and 3." },
+          { "id": 2, "label": "Time the alerts", "result": "Already clearing. Three of the original units are back to normal within the last minute." },
+          { "id": 3, "label": "Check the digital dashboards", "result": "Website, checkout, order confirmation: all green, same as always." }
+        ],
+        "bhau_scene_line": "Loud's not the same as urgent. Alan taught you that on a quiet zone. Same rule, louder room.",
+        "decision_intro": "Alan: \"Every light on that board is red. Feels like the last one, doesn't it? Is it?\"",
+        "options": [
+          { "id": "A", "text": "Confirm it against the maintenance calendar and stand down — this is the scheduled cycle, not an incident." },
+          { "id": "B", "text": "Raise it as a Major Incident now — this many alerts at once is too big to sit on." },
+          { "id": "C", "text": "Message the floor engineer informally to keep watching, without logging anything yet." }
+        ],
+        "halt_prelude": "The board's still red for a few more seconds. Whatever you chose is already moving.",
+        "halt_line": "Handover complete. What that call cost — that's for the debrief.",
+        "reveal": {
+          "setup": "Zones 2 and 3 finished their scheduled cycle four minutes after the first alert, exactly as logged. Nothing about tonight was ever broken.",
+          "outcomes": {
+            "A": "Confirmed against the calendar, stood down. Correct — and it cost nothing. The scheduled cycle finished on time, same as every Tuesday.",
+            "B": "Four people paged out of bed for a routine recalibration that was already resolving itself. The cost isn't zero just because it wasn't a real incident — it's paid later, when the next genuine 21:42-style page gets a slower response, because this one cried wolf.",
+            "C": "An informal ping doesn't fix anything here either — there was nothing to fix — but it also means nobody checked the one thing that would have actually answered the question: the calendar. Right instinct not to panic, wrong way to confirm it."
+          },
+          "concept": "The criteria for a Major Incident are about real signal — customer risk, a genuine need for another team, time actually unresolved — not about how many red lights are on the board at once. Zone 4 three nights ago was quiet and real. Tonight is loud and nothing. Same three questions, asked properly, get you the right answer either time."
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,7 @@
+.DS_Store
+node_modules/
+client/dist/
+server/data/quietfloor.sqlite
+server/data/quietfloor.sqlite-shm
+server/data/quietfloor.sqlite-wal
+*.log

@@ -1,0 +1,221 @@
+/* Styled to resemble THG's actual ServiceDesk Plus "New Incident" form
+   (build spec §5.1) — a deliberate light-theme island inside the otherwise
+   dark VN shell, not the game's own visual language. Scoped under
+   .escalation-shell so nothing here leaks into Depot/VN/Reveal. */
+
+.escalation-shell {
+  background: #ffffff;
+  color: #1a1a1a;
+  border-radius: 6px;
+  padding-bottom: 24px;
+  margin: -20px -20px 0;
+  overflow: hidden;
+}
+
+.escalation-topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e2e5e9;
+  background: #fafbfc;
+}
+
+.escalation-topbar-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: #2d7dd2;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+  font-family: var(--font-body);
+  flex-shrink: 0;
+}
+
+.escalation-topbar-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+  font-family: var(--font-body);
+}
+
+.escalation-header-row {
+  padding: 18px 20px 12px;
+}
+
+.escalation-title {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+  color: #1a1a1a;
+  font-family: var(--font-body);
+}
+
+.escalation-section-label {
+  margin: 0 20px 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #eef0f2;
+  font-size: 13px;
+  font-weight: 700;
+  color: #4a4a4a;
+  font-family: var(--font-body);
+}
+
+.escalation-row {
+  display: flex;
+  gap: 16px;
+  padding: 0 20px;
+}
+
+.escalation-row .escalation-field {
+  flex: 1;
+  padding: 0;
+}
+
+.escalation-field {
+  padding: 0 20px;
+  margin-bottom: 16px;
+}
+
+.escalation-label {
+  display: block;
+  color: #4a4a4a;
+  font-weight: 500;
+  font-size: 13px;
+  margin-bottom: 6px;
+  font-family: var(--font-body);
+}
+
+.escalation-required {
+  color: #e0483e;
+  margin-right: 3px;
+}
+
+.escalation-shell .escalation-select,
+.escalation-shell .escalation-textarea,
+.escalation-shell .escalation-input {
+  width: 100%;
+  min-height: 0;
+  background: #ffffff;
+  border: 1px solid #d5d9dd;
+  border-radius: 4px;
+  padding: 9px 12px;
+  margin-bottom: 0;
+  color: #1a1a1a;
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.escalation-shell .escalation-select:focus,
+.escalation-shell .escalation-textarea:focus,
+.escalation-shell .escalation-input:focus {
+  outline: none;
+  border-color: #2d7dd2;
+  box-shadow: 0 0 0 2px rgba(45, 125, 210, 0.15);
+}
+
+.escalation-select {
+  appearance: auto;
+  color: #1a1a1a;
+}
+
+.escalation-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 1px solid #d5d9dd;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  background: #fafbfc;
+}
+
+.escalation-toolbar span {
+  font-size: 12px;
+  color: #8a8f94;
+  padding: 3px 7px;
+  border-radius: 3px;
+  font-family: var(--font-body);
+}
+
+.escalation-toolbar span:hover {
+  background: #eef0f2;
+}
+
+.escalation-toolbar .divider {
+  width: 1px;
+  height: 14px;
+  background: #d5d9dd;
+  margin: 0 4px;
+  padding: 0;
+}
+
+.escalation-textarea.with-toolbar {
+  border-radius: 0 0 4px 4px;
+  min-height: 110px;
+  resize: vertical;
+}
+
+.escalation-priority-readout {
+  background: #f5f6f8;
+  border: 1px solid #d5d9dd;
+  border-radius: 4px;
+  padding: 9px 12px;
+  color: #55595d;
+  font-size: 14px;
+  font-family: var(--font-body);
+}
+
+.escalation-actions {
+  display: flex;
+  gap: 10px;
+  padding: 8px 20px 0;
+}
+
+.escalation-btn-primary {
+  background: #2d7dd2;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 24px;
+  font-weight: 600;
+  font-size: 14px;
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+.escalation-btn-primary:disabled {
+  background: #a9c8e8;
+  cursor: not-allowed;
+}
+
+.escalation-btn-secondary {
+  background: #ffffff;
+  color: #444;
+  border: 1px solid #d5d9dd;
+  border-radius: 4px;
+  padding: 10px 24px;
+  font-weight: 500;
+  font-size: 14px;
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+.escalation-confirm {
+  margin: 0 20px;
+  padding: 16px;
+  background: #f0f7ff;
+  border: 1px solid #bcdcfa;
+  border-radius: 6px;
+  color: #1a1a1a;
+}
+
+.escalation-confirm p {
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 600;
+}

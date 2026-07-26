@@ -1,0 +1,91 @@
+:root {
+  --night:   #101D22;
+  --teal:    #1E3A42;
+  --teal-2:  #2A4C55;
+  --paper:   #F4E7D3;
+  --paper-dim:#C9B99F;
+  --ochre:   #C8925A;
+  --amber:   #F2B24C;
+  --danger-amber: #E08A3C;
+  --danger:  #D9534F;
+  --ink:     #0B1416;
+
+  --font-display: 'Bricolage Grotesque', serif;
+  --font-body: 'Inter', sans-serif;
+  --font-radio: 'IBM Plex Mono', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--paper);
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-size: 17px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font-family: var(--font-body);
+}
+
+.title, .bhau-line, .halt-cliffhanger {
+  font-family: var(--font-display);
+}
+
+.bhau-line {
+  color: var(--amber);
+  font-style: italic;
+  border-left: 2px solid var(--ochre);
+  padding-left: 12px;
+  font-weight: 600;
+}
+
+.concept-line {
+  font-family: var(--font-display);
+  color: var(--paper);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.btn {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  border-radius: 8px;
+  font-size: 17px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+}
+
+.btn-primary {
+  background: var(--ochre);
+  color: var(--ink);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--paper);
+  border: 1px solid var(--paper-dim);
+}
+
+.btn-commit {
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 700;
+}

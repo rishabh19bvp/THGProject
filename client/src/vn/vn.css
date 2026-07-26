@@ -1,0 +1,362 @@
+/* ============================================================
+   VN vertical slice (vn_vertical_slice_spec.md) — fixed 16:9 stage,
+   dialogue box, portraits, in-stage timer. Percent-positioned inside
+   the stage so it scales as one unit.
+   ============================================================ */
+
+.vn-root {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.vn-stage {
+  position: relative;
+  overflow: hidden;
+  background: var(--night);
+  /* cqh/cqw units below are sized against THIS box, not the viewport — the
+     stage is letterboxed on phone aspect ratios (much taller/narrower than
+     16:9), so viewport-relative vh/vw units used to blow proportions up or
+     down relative to the visibly smaller stage. Container units fix that. */
+  container-type: size;
+}
+
+.vn-rotate-gate,
+.vn-begin-gate,
+.vn-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: var(--night);
+  color: var(--paper);
+  text-align: center;
+  padding: 5%;
+  font-family: var(--font-display);
+  font-size: clamp(16px, 3cqh, 28px);
+  cursor: pointer;
+}
+
+.vn-rotate-icon {
+  font-size: clamp(32px, 8cqh, 72px);
+  animation: vn-rotate-spin 2s ease-in-out infinite;
+}
+
+@keyframes vn-rotate-spin {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(90deg); }
+}
+
+.vn-bg-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.vn-bg-layer img,
+.vn-bg-layer .image-placeholder {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0;
+}
+
+/* Situation overlay during scene/assessment beats — corner HUD chip for the stage. */
+.vn-patient-panel {
+  position: absolute;
+  top: 3%;
+  right: 3%;
+  z-index: 10;
+  max-width: 40%;
+}
+
+.vn-patient-panel .patient-panel {
+  margin: 0;
+  font-size: clamp(11px, 1.6cqh, 17px);
+  padding: 1.5% 2%;
+}
+
+.vn-saving-chip {
+  position: absolute;
+  top: 3%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+/* Quiet chrome: the mute control is an icon in the dark, not a bordered pill. */
+.vn-mute-toggle {
+  position: absolute;
+  top: 3%;
+  left: 3%;
+  z-index: 10;
+  width: auto;
+  min-height: auto;
+  background: none;
+  border: none;
+  padding: 0.6% 0.8%;
+  font-size: 2.4cqh;
+  cursor: pointer;
+  opacity: 0.65;
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.8));
+  transition: opacity 120ms ease;
+}
+
+.vn-mute-toggle:hover {
+  opacity: 1;
+}
+
+.vn-timer {
+  position: absolute;
+  top: 9%;
+  left: 3%;
+  z-index: 10;
+  width: 7%;
+  aspect-ratio: 1;
+}
+
+.vn-timer svg {
+  width: 100%;
+  height: 100%;
+}
+
+.vn-timer-track {
+  stroke: var(--teal-2);
+}
+
+.vn-timer-fill {
+  stroke: var(--ochre);
+  transition: stroke-dashoffset 0.4s linear, stroke 0.3s linear;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+.vn-timer-fill.amber { stroke: var(--danger-amber); }
+.vn-timer-fill.danger { stroke: var(--danger); }
+
+.vn-timer-numeral {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(11px, 1.6cqh, 18px);
+  color: var(--paper);
+}
+
+.vn-timer-numeral.danger {
+  color: var(--danger);
+  animation: timer-pulse 1s infinite;
+}
+
+/* The mentor is a VN sprite standing in the scene, not a photo filed in a
+   corner. Big, bottom-anchored, right next to his own dialogue — he's here
+   with you, not archived. Edges feather into the scene so the source art's
+   flat studio backdrop dissolves into the night instead of reading as a cutout. */
+.vn-portrait-slot {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 42%;
+  height: 88%;
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 260ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 5;
+  pointer-events: none;
+}
+
+.vn-portrait-slot.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.vn-portrait-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top center;
+  filter: sepia(0.12) saturate(0.95) brightness(0.92);
+  -webkit-mask-image:
+    linear-gradient(180deg, transparent 0%, #000 14%, #000 60%, transparent 97%),
+    linear-gradient(90deg, transparent 0%, #000 22%, #000 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(180deg, transparent 0%, #000 14%, #000 60%, transparent 97%),
+    linear-gradient(90deg, transparent 0%, #000 22%, #000 100%);
+  mask-composite: intersect;
+}
+
+/* The stage never gets a box drawn on it. Dialogue sits on a scrim that
+   fades to transparent, so the art stays visible behind every line. */
+.vn-dialogue-box {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-height: 38%;
+  background: linear-gradient(
+    180deg,
+    rgba(11, 20, 22, 0) 0%,
+    rgba(11, 20, 22, 0.55) 32%,
+    rgba(11, 20, 22, 0.88) 62%,
+    rgba(11, 20, 22, 0.94) 100%
+  );
+  padding: 9% 6% calc(3% + env(safe-area-inset-bottom, 0px)) 6%;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  z-index: 6;
+}
+
+.vn-name-tag {
+  color: var(--amber);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-style: italic;
+  font-size: clamp(13px, 2.2cqh, 22px);
+  letter-spacing: 0.03em;
+  margin-bottom: 0.8cqh;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+}
+
+.vn-dialogue-text {
+  color: var(--paper);
+  font-size: clamp(15px, 2.5cqh, 28px);
+  line-height: 1.55;
+  white-space: pre-line;
+  margin: 0;
+  max-width: 62%;
+  min-height: 8cqh;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.9);
+}
+
+.vn-dialogue-text.mono {
+  font-family: var(--font-radio);
+}
+
+.vn-advance-indicator {
+  width: 62%;
+  text-align: right;
+  color: var(--ochre);
+  font-size: clamp(13px, 2.4cqh, 24px);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  animation: vn-advance-blink 1.2s ease infinite;
+}
+
+@keyframes vn-advance-blink {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 1; }
+}
+
+/* Choices read as things you say or do — bare lines with an ochre rule,
+   not web buttons. Fill only on press/hover. */
+.vn-choice-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6cqh;
+  margin-top: 1.4cqh;
+  max-width: 62%;
+}
+
+.vn-choice-btn {
+  background: transparent;
+  border: none;
+  border-left: 3px solid var(--ochre);
+  color: var(--paper);
+  border-radius: 0;
+  padding: 1cqh 1.4cqw;
+  font-size: clamp(14px, 2.2cqh, 22px);
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+  transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+}
+
+.vn-choice-btn:hover,
+.vn-choice-btn:active {
+  background: rgba(200, 146, 90, 0.18);
+  border-left-color: var(--amber);
+  transform: translateX(3px);
+}
+
+/* Probe is one scrim, not three stacked boxes: the mentor's line, an
+   underlined field to answer into, and a quiet submit — a single composed
+   moment. */
+.vn-probe-wrap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2cqh;
+  padding: 0 6% calc(3% + env(safe-area-inset-bottom, 0px)) 6%;
+  background: linear-gradient(
+    180deg,
+    rgba(11, 20, 22, 0) 0%,
+    rgba(11, 20, 22, 0.6) 22%,
+    rgba(11, 20, 22, 0.92) 52%,
+    rgba(11, 20, 22, 0.96) 100%
+  );
+  padding-top: 10%;
+}
+
+.vn-probe-wrap .vn-dialogue-box {
+  position: static;
+  min-height: 0;
+  height: auto;
+  cursor: default;
+  margin-bottom: 0;
+  background: none;
+  padding: 0;
+}
+
+.vn-probe-input {
+  background: rgba(244, 231, 211, 0.06);
+  border: none;
+  border-bottom: 2px solid var(--ochre);
+  border-radius: 4px 4px 0 0;
+  color: var(--paper);
+  font-family: var(--font-body);
+  font-size: clamp(14px, 2.1cqh, 22px);
+  line-height: 1.5;
+  padding: 1.4cqh 1.2cqw;
+  resize: none;
+  min-height: 9cqh;
+  max-width: 62%;
+  caret-color: var(--amber);
+}
+
+.vn-probe-input:focus {
+  outline: none;
+  border-bottom-color: var(--amber);
+  background: rgba(244, 231, 211, 0.1);
+}
+
+.vn-probe-input::placeholder {
+  color: var(--paper-dim);
+  opacity: 0.7;
+}
+
+.vn-probe-submit {
+  align-self: flex-start;
+  width: auto;
+  min-height: auto;
+  padding: 1cqh 2.4cqw;
+  font-size: clamp(14px, 2.2cqh, 22px);
+  border-radius: 4px;
+}

@@ -1,0 +1,17 @@
+{
+  "name": "the-quiet-floor",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": ["server", "client"],
+  "scripts": {
+    "dev:server": "npm run dev --workspace server",
+    "dev:client": "npm run dev --workspace client",
+    "dev": "npm run seed --workspace server && concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
+    "build": "npm run build --workspace client",
+    "seed": "npm run seed --workspace server",
+    "start": "npm run seed --workspace server && npm run start --workspace server"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

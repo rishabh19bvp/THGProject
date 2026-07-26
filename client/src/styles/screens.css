@@ -1,0 +1,409 @@
+.app-shell {
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 20px;
+  position: relative;
+}
+
+@media (max-width: 320px) {
+  .app-shell {
+    padding: 12px;
+  }
+}
+
+/* Reveal + EscalationForm render inside the same fixed 16:9 landscape Stage
+   as Depot/VN (§ build spec — these are full screens in the flow, not a
+   mobile-web page), so the phone-width .app-shell column is overridden here
+   to fill the stage and scroll internally instead of centering narrow. */
+.landscape-panel {
+  max-width: none;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 32px 0;
+  overflow-y: auto;
+}
+
+.landscape-panel > .escalation-shell,
+.landscape-panel > .reveal-shell {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* ---- Timer ---- */
+.timer-bar-track {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--teal);
+  z-index: 10;
+}
+
+.timer-bar-fill {
+  height: 100%;
+  background: var(--ochre);
+  transition: width 0.4s linear, background-color 0.3s linear;
+}
+
+.timer-bar-fill.amber { background: var(--danger-amber); }
+.timer-bar-fill.danger { background: var(--danger); }
+
+/* numeral now lives inside the SVG arc costume — see .timer-arc-numeral in gamefeel.css */
+
+@keyframes timer-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+@keyframes timer-flash {
+  0% { color: var(--danger-amber); }
+  100% { color: inherit; }
+}
+
+/* ---- Dispatch line reveal ---- */
+.dispatch-line {
+  opacity: 0;
+  animation: dispatch-fade-in 350ms forwards;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 20px;
+  margin: 0 0 12px 0;
+}
+
+@keyframes dispatch-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Images / placeholders ---- */
+.scene-image {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 12px;
+  box-shadow: inset 0 0 24px rgba(0,0,0,0.4);
+  display: block;
+  margin-bottom: 16px;
+}
+
+.image-placeholder {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  background: var(--teal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--paper-dim);
+  font-size: 14px;
+  letter-spacing: 0.04em;
+  margin-bottom: 16px;
+}
+
+/* ---- Situation panel ---- */
+.patient-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: var(--teal);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 16px 0;
+}
+
+.patient-panel .field-label {
+  color: var(--paper-dim);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.patient-panel .field-value {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* ---- Assessment actions ---- */
+.assessment-btn {
+  width: 100%;
+  text-align: left;
+  background: var(--teal);
+  color: var(--paper);
+  border: 1px solid var(--teal-2);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.assessment-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.assessment-result {
+  color: var(--paper-dim);
+  font-size: 14px;
+  margin: -4px 0 8px 0;
+  padding: 0 16px;
+}
+
+/* ---- Option cards (equal weight — no hierarchy) ---- */
+.option-card {
+  width: 100%;
+  text-align: left;
+  background: var(--teal);
+  color: var(--paper);
+  border: 1px solid var(--teal-2);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  font-size: 16px;
+  font-family: var(--font-body);
+}
+
+.option-card.selected {
+  border-color: var(--paper-dim);
+  background: var(--teal-2);
+}
+
+/* ---- Commit confirm bar + lock-in sweep ---- */
+.confirm-bar {
+  position: sticky;
+  bottom: 0;
+  background: var(--night);
+  padding: 12px 0;
+}
+
+.commit-lockin {
+  position: relative;
+  overflow: hidden;
+}
+
+.commit-lockin.sweeping::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--paper);
+  border-radius: 8px;
+  animation: commit-sweep 250ms forwards;
+}
+
+@keyframes commit-sweep {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+/* ---- Probe ---- */
+.probe-textarea {
+  width: 100%;
+  min-height: 100px;
+  background: var(--teal);
+  color: var(--paper);
+  border: 1px solid var(--teal-2);
+  border-radius: 8px;
+  padding: 12px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  resize: none;
+}
+
+/* ---- Halt ---- */
+.halt-screen {
+  animation: halt-fade-in 0.8s ease-out forwards;
+}
+
+@keyframes halt-fade-in {
+  from { opacity: 0; background: #000; }
+  to { opacity: 1; }
+}
+
+.saving-chip {
+  display: inline-block;
+  background: var(--teal-2);
+  color: var(--paper-dim);
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-top: 12px;
+}
+
+/* ---- Entry ---- */
+.case-btn {
+  width: 100%;
+  text-align: left;
+  background: var(--teal);
+  border: 1px solid var(--teal-2);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  color: var(--paper);
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.case-btn .handed-over {
+  color: var(--paper-dim);
+  font-size: 13px;
+}
+
+input[type="text"] {
+  width: 100%;
+  min-height: 52px;
+  background: var(--teal);
+  border: 1px solid var(--teal-2);
+  border-radius: 8px;
+  padding: 0 14px;
+  color: var(--paper);
+  font-size: 17px;
+  margin-bottom: 20px;
+}
+
+/* ---- Depot ---- */
+.not-you-link {
+  width: auto;
+  display: inline-block;
+  padding: 6px 12px;
+  min-height: auto;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.depot-bhau-note {
+  margin-bottom: 20px;
+}
+
+.depot-slip {
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+  cursor: pointer;
+}
+
+.depot-slip-empty {
+  background: var(--teal);
+  color: var(--paper-dim);
+  cursor: default;
+}
+
+.depot-slip-incoming {
+  cursor: default;
+}
+
+.depot-slip-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 20px;
+  margin: 0 0 12px 0;
+}
+
+.depot-stamp {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  padding: 4px 10px;
+  border: 2px solid currentColor;
+  border-radius: 4px;
+  transform: rotate(-2deg);
+}
+
+.depot-stamp-pending {
+  color: var(--danger-amber);
+}
+
+.depot-stamp-resolved {
+  color: var(--teal);
+}
+
+.depot-folders {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.depot-folder {
+  background: var(--teal);
+  border: 1px solid var(--teal-2);
+  border-radius: 8px;
+  padding: 14px 16px;
+  color: var(--paper);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.depot-folder-sealed {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.depot-folder-progress {
+  color: var(--paper-dim);
+  font-size: 13px;
+}
+
+.depot-folder-case {
+  width: 100%;
+  text-align: left;
+  background: var(--teal);
+  border: 1px solid var(--teal-2);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  color: var(--paper);
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.shift-log {
+  margin-bottom: 24px;
+}
+
+.shift-log-entry {
+  background: var(--teal);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+
+.shift-log-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  margin: 0 0 4px 0;
+}
+
+.shift-log-choice {
+  color: var(--paper-dim);
+  font-size: 14px;
+  margin: 0 0 6px 0;
+}
+
+.shift-log-justification {
+  font-style: italic;
+  color: var(--paper-dim);
+  margin: 0 0 6px 0;
+}
+
+.shift-log-outcome {
+  font-size: 15px;
+  margin: 0;
+}

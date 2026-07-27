@@ -6,9 +6,10 @@
 .escalation-shell {
   background: #ffffff;
   color: #1a1a1a;
-  border-radius: 6px;
+  border: 1px solid #d5d9dd;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
   padding-bottom: 24px;
-  margin: -20px -20px 0;
   overflow: hidden;
 }
 
@@ -101,6 +102,7 @@
 .corp-shell .escalation-select,
 .corp-shell .escalation-textarea,
 .corp-shell .escalation-input {
+  box-sizing: border-box;
   width: 100%;
   min-height: 0;
   background: #ffffff;
@@ -124,9 +126,72 @@
   box-shadow: 0 0 0 2px rgba(45, 125, 210, 0.15);
 }
 
-.escalation-select {
-  appearance: auto;
+/* Native select chrome (appearance: auto) renders its own border/arrow per
+   browser — Safari in particular ignores the custom border-radius, so the
+   box looks inconsistent next to plain text inputs. A custom chevron plus
+   appearance: none keeps every field's border identical across browsers.
+   Scoped to match (or beat) the shared-field rule above, since a bare
+   `.escalation-select` loses the specificity fight against
+   `.corp-shell .escalation-select` and its `background: #fff` shorthand
+   silently resets background-image back to none. */
+.escalation-shell .escalation-select,
+.corp-shell .escalation-select {
+  appearance: none;
   color: #1a1a1a;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%2355595d' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.escalation-checkbox-field {
+  display: flex;
+  align-items: center;
+}
+
+.escalation-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #1a1a1a;
+  font-family: var(--font-body);
+}
+
+.escalation-checkbox-label input[type='checkbox'] {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  border: 1px solid #d5d9dd;
+  border-radius: 4px;
+  background: #ffffff;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.escalation-checkbox-label input[type='checkbox']:checked {
+  background: #2d7dd2;
+  border-color: #2d7dd2;
+}
+
+.escalation-checkbox-label input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1px;
+  width: 5px;
+  height: 9px;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.escalation-checkbox-label input[type='checkbox']:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(45, 125, 210, 0.35);
 }
 
 .escalation-toolbar {

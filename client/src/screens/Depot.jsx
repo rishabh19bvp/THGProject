@@ -60,13 +60,31 @@ function SignIn({ strings, onSignedIn }) {
   );
 }
 
-// No sequential unlock — every case is visible and playable in any order,
-// any number of times. Status just tells the trainee where they left off.
+// Each scenario teaches exactly one SDP mechanic — shown as a small
+// "Lesson N: teaches X" kicker so the curriculum order is visible even
+// though every scenario stays playable in any order, any number of times.
+const TEACHES_LABEL = {
+  category: 'Ticket Category',
+  priority: 'Impact & Urgency → Priority',
+  notify: 'Routing / Notify',
+  worklog: 'Work Log',
+  closure: 'Closure Code',
+};
+
+function LessonKicker({ c }) {
+  return (
+    <p className="corp-lesson-kicker">
+      Lesson {c.case_id} — Teaches: {TEACHES_LABEL[c.teaches] || c.teaches}
+    </p>
+  );
+}
+
 function CaseCard({ c, onPlay, onResume }) {
   if (c.status === 'OPEN') {
     return (
       <div className="corp-card">
         <span className="corp-badge corp-badge-pending">Ticket open</span>
+        <LessonKicker c={c} />
         <p className="corp-card-title">{c.title}</p>
         <button type="button" className="escalation-btn-primary" onClick={() => onResume(c.case_id, c.ticket_id)}>
           Resume
@@ -76,6 +94,7 @@ function CaseCard({ c, onPlay, onResume }) {
   }
   return (
     <div className="corp-card">
+      <LessonKicker c={c} />
       <p className="corp-card-title">{c.title}</p>
       <button type="button" className="escalation-btn-primary" onClick={() => onPlay(c.case_id)}>
         Play
@@ -88,6 +107,7 @@ function CompletedCard({ c, onPlay }) {
   return (
     <div className="corp-card">
       <span className="corp-badge corp-badge-resolved">Completed</span>
+      <LessonKicker c={c} />
       <p className="corp-card-title">{c.title}</p>
       <button type="button" className="escalation-btn-secondary" onClick={() => onPlay(c.case_id)}>
         Play again

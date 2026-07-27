@@ -87,6 +87,14 @@
   margin-bottom: 20px;
 }
 
+.corp-lesson-kicker {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #8a8f94;
+}
+
 .corp-card-label {
   margin: 0 0 8px;
   font-size: 12px;

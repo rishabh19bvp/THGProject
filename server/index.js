@@ -45,12 +45,26 @@ app.get('/api/strings', (req, res) => {
 });
 
 app.get('/api/cases-list', (req, res) => {
-  res.json(casesInOrder.map((c) => ({ id: c.id, title: c.title })));
+  res.json(casesInOrder.map((c) => ({ id: c.id, title: c.title, teaches: c.teaches })));
 });
 
-// the situation brief + drill script for a case — everything the client
-// needs to run the 6-step ticket lifecycle, plus the option lists so
-// dropdowns always match server-side validation.
+// Each scenario teaches exactly one SDP mechanic — this is the event type
+// that marks it "done" for depot status, regardless of the ticket's overall
+// status (most scenarios never close the ticket at all; only teaches=closure
+// does, and CLOSED is that scenario's own event).
+const EVENT_FOR_TEACHES = {
+  category: 'CREATED',
+  priority: 'PRIORITY_CHANGED',
+  notify: 'NOTIFY_SET',
+  worklog: 'WORKLOG',
+  closure: 'CLOSED',
+};
+
+// the scene + single drill script for a scenario — everything the client
+// needs to set the scene, silently bootstrap the ticket if this scenario's
+// one interactive step isn't ticket creation itself, run that one step, and
+// show the concept payoff — plus the option lists so dropdowns always match
+// server-side validation.
 app.get('/api/drill/:caseId', (req, res) => {
   const caseId = parseInt(req.params.caseId, 10);
   const caseObj = casesById.get(caseId);
@@ -59,8 +73,10 @@ app.get('/api/drill/:caseId', (req, res) => {
   res.json({
     id: caseObj.id,
     title: caseObj.title,
-    brief: caseObj.brief,
+    teaches: caseObj.teaches,
+    scene: caseObj.scene,
     drills: caseObj.drills,
+    concept: caseObj.concept,
     options: {
       category: CATEGORY_OPTIONS,
       impact: IMPACT_OPTIONS,
@@ -74,9 +90,9 @@ app.get('/api/drill/:caseId', (req, res) => {
 // GET /api/depot?roll=XX — case list with per-roll status, derived from each
 // case's most recent ticket (append-only: a replay is a new row, never an
 // update to an old one, so a stale ticket can never masquerade as current).
-//   AVAILABLE  — no ticket yet (or the last one was closed; replay makes a new one)
-//   OPEN       — a ticket exists and is still open (mid-drill, resumable)
-//   COMPLETED  — the latest ticket is closed
+//   AVAILABLE  — no ticket yet (or the last one finished; replay makes a new one)
+//   OPEN       — a ticket exists but this scenario's one taught step hasn't happened yet
+//   COMPLETED  — this scenario's one taught step (its event type) has happened
 app.get('/api/depot', (req, res) => {
   const roll = req.query.roll || '';
   if (!roll) return res.status(400).json({ error: 'roll required' });
@@ -86,10 +102,12 @@ app.get('/api/depot', (req, res) => {
     let status = 'AVAILABLE';
     let ticketId = null;
     if (ticket) {
-      status = ticket.status === 'Closed' ? 'COMPLETED' : 'OPEN';
+      const events = statements.getEventsForTicket.all(ticket.id);
+      const taught = events.some((e) => e.type === EVENT_FOR_TEACHES[c.teaches]);
+      status = taught ? 'COMPLETED' : 'OPEN';
       ticketId = ticket.id;
     }
-    return { case_id: c.id, title: c.title, status, ticket_id: ticketId };
+    return { case_id: c.id, title: c.title, teaches: c.teaches, status, ticket_id: ticketId };
   });
 
   res.json({ cases: casesOut });

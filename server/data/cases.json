@@ -2,43 +2,96 @@
   {
     "id": 1,
     "title": "The Quiet Floor",
-    "brief": [
-      "21:42, Zone 4 AutoStore grid. Three failed retrieval attempts in six minutes — no hard fault code, no stoppage. Every customer-facing dashboard reads green.",
-      "The change log shows a firmware push to that zone two hours earlier, ahead of peak-season load testing.",
-      "Right call: raise it as a Major Incident now. The criteria — needs another team, could reach a customer, has gone unresolved a while — don't wait for visible damage, and this already met one of the three."
-    ],
+    "teaches": "category",
+    "scene": {
+      "images": ["zone4_anomaly.jpg", "dashboards_green.jpg"],
+      "lines": [
+        "21:42, Zone 4 AutoStore grid. Three failed retrieval attempts in six minutes — no hard fault code, no stoppage.",
+        "Every customer-facing dashboard still reads green. A change log shows a firmware push to that zone two hours earlier, ahead of peak-season load testing.",
+        "Nothing here is on fire. But something changed, and the floor hasn't fully settled since."
+      ]
+    },
     "drills": {
-      "correct_category": "Major Incident",
-      "description_seed": "Zone 4 showing intermittent retry faults following an unconfirmed firmware push, three days ahead of peak trading.",
-      "initial_impact": "Medium",
-      "initial_urgency": "High",
-      "correct_notify": "WMS Engineering",
-      "escalation_brief": "Four hours later, the same fault reaches Zone 5 — identical hardware, identical firmware, same fault pattern.",
-      "escalated_impact": "High",
-      "worklog_seed": "Firmware push confirmed as root cause. WMS Engineering paused the change platform-wide before it reached further zones.",
-      "correct_closure": "Resolved — Fixed",
-      "closure_comment_seed": "Logged as a Major Incident at 21:50. Firmware push identified and paused before reaching Zone 5. Resolved ahead of the next shift."
-    }
+      "description_seed": "Zone 4 showing intermittent retry faults following an unconfirmed firmware push, three days ahead of peak trading."
+    },
+    "concept": "A Major Incident doesn't wait for visible damage. The real test: does it need another team, could it reach a customer, has it gone unresolved a while — Zone 4 already met one of the three, quiet or not."
   },
   {
     "id": 2,
     "title": "Every Light at Once",
-    "brief": [
-      "21:45, Zones 2 and 3. Every unit alarms within the same ninety seconds — the floor display is a wall of red.",
-      "The maintenance calendar shows this exact pattern logged every Tuesday: a scheduled recalibration cycle, already clearing.",
-      "Right call: confirm against the calendar and stand down. Loud isn't the same as urgent — the criteria are about real signal, not how many lights are red."
-    ],
+    "teaches": "priority",
+    "scene": {
+      "images": ["floor_alarm.jpg"],
+      "lines": [
+        "21:45, Zones 2 and 3. Every unit alarms within the same ninety seconds — the floor display is a wall of red.",
+        "Two floor staff are already at the panel. It looks like the biggest thing that's happened all week.",
+        "Nobody's checked the maintenance calendar yet."
+      ]
+    },
     "drills": {
-      "correct_category": "Service Request",
-      "description_seed": "Simultaneous fault alerts across Zones 2 and 3, cross-checked against the maintenance calendar.",
-      "initial_impact": "Low",
-      "initial_urgency": "Low",
-      "correct_notify": "No one — closing as routine",
-      "escalation_brief": "A second wave of alerts clears exactly on schedule, confirming the calendar theory.",
-      "escalated_impact": "Low",
-      "worklog_seed": "Confirmed against the maintenance calendar — scheduled recalibration, Zones 2 and 3. No fault found.",
-      "correct_closure": "Resolved — No Fault Found",
-      "closure_comment_seed": "Zones 2 and 3 finished their scheduled cycle four minutes after the first alert, exactly as logged. Nothing about tonight was ever broken."
-    }
+      "title": "Zones 2/3 simultaneous fault alerts",
+      "category": "Service Request",
+      "description_seed": "Simultaneous fault alerts across Zones 2 and 3, cross-checking against the maintenance calendar."
+    },
+    "concept": "Priority runs on Impact × Urgency, not decibels. A wall of red lights that clears itself on schedule carries a different Priority than one unit quietly failing near a deadline — same matrix, very different inputs."
+  },
+  {
+    "id": 3,
+    "title": "One Aisle, Not Everyone",
+    "teaches": "notify",
+    "scene": {
+      "images": ["floor_wide.jpg"],
+      "lines": [
+        "22:10, Packing Zone 6. The conveyor gate has jammed twice in ten minutes — the floor engineer is already elbow-deep in it.",
+        "Nothing's reached the website. Nothing's reached Despatch. But three totes are backing up behind the gate, and the engineer can't watch the queue and fix the gate at the same time.",
+        "Somebody outside this aisle needs to know what's happening before the queue gets any longer."
+      ]
+    },
+    "drills": {
+      "title": "Packing Zone 6 conveyor gate jam",
+      "category": "Service Request",
+      "description_seed": "Conveyor gate at Packing Zone 6 jamming repeatedly while the floor engineer works the fault; queue building behind it."
+    },
+    "concept": "Escalating isn't about noise — it's about routing. The engineer in the aisle didn't need paging; the team who could clear the backing queue did. Notify is how you get the right people moving without waking up everyone else."
+  },
+  {
+    "id": 4,
+    "title": "On the Record",
+    "teaches": "worklog",
+    "scene": {
+      "images": ["floor_wide.jpg"],
+      "lines": [
+        "23:05, Pick-face Aisle 12. A handheld scanner started throwing read errors twenty minutes ago — enough to slow two pickers down.",
+        "A technician already swapped the unit. The aisle's moving again, no alarms, nothing outstanding.",
+        "The only thing left is making sure what actually happened tonight is on the record — not just talked about."
+      ]
+    },
+    "drills": {
+      "title": "Aisle 12 handheld scanner swap",
+      "category": "Service Request",
+      "description_seed": "Handheld scanner in Aisle 12 throwing read errors; unit swapped by floor technician.",
+      "worklog_seed": "Swapped faulty handheld scanner unit in Aisle 12. Confirmed clean reads on five consecutive scans before leaving the aisle."
+    },
+    "concept": "A WorkLog is your own time-tracked record of what you did — separate from a Note, which is just conversation with the requester or another technician. If it's not in a WorkLog, the ticket's history doesn't show it happened."
+  },
+  {
+    "id": 5,
+    "title": "Closing It Right",
+    "teaches": "closure",
+    "scene": {
+      "images": ["dashboards_green.jpg"],
+      "lines": [
+        "04:10, Zone 4. WMS Engineering paused the firmware rollout platform-wide four hours ago, right after it reached Zone 5.",
+        "Both zones have been clean since. Every dashboard reads green, and the next shift is already filing in.",
+        "The ticket's still open. Closing it is the last thing standing between tonight and the handover."
+      ]
+    },
+    "drills": {
+      "title": "Zone 4/5 firmware rollout — retry fault",
+      "category": "Major Incident",
+      "description_seed": "Firmware push caused intermittent retry faults in Zone 4, later reaching Zone 5. WMS Engineering paused the rollout platform-wide.",
+      "closure_comment_seed": "Firmware rollout paused platform-wide before further spread. Both zones clean since 00:10. Closing ahead of handover."
+    },
+    "concept": "Closure codes aren't just \"Resolved.\" Resolved — Fixed, No Fault Found, Duplicate, and Cancelled all close a ticket, but they mean very different things in next month's report. Picking the right one is how \"resolved\" stays a useful word instead of a rubber stamp."
   }
 ]

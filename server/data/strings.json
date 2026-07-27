@@ -9,10 +9,8 @@
 
   "loading_state": "Loading…",
 
-  "brief_header": "SITUATION BRIEF",
-  "brief_continue_button": "Start the ticket",
-
-  "drill_step_label": "Step {step} of 6",
+  "scene_header": "THE SITUATION",
+  "scene_continue_button": "Start the ticket",
 
   "drill1_header": "Raise a new ticket",
   "drill1_title_label": "Title / Subject",
@@ -32,12 +30,6 @@
   "drill3_notify_label": "Notify / Escalate to",
   "drill3_continue_button": "Continue",
 
-  "drill4_header": "The situation develops",
-  "drill4_impact_label": "Impact",
-  "drill4_urgency_label": "Urgency",
-  "drill4_priority_label": "Priority",
-  "drill4_continue_button": "Update ticket",
-
   "drill5_header": "Add a Work Log",
   "drill5_intro": "A WorkLog records what a technician actually did, with time spent — separate from a Note (which is conversation with the requester or another technician).",
   "drill5_description_label": "Work description",
@@ -54,9 +46,9 @@
   "drill6_comments_placeholder": "Why is this being closed?",
   "drill6_submit_button": "Close ticket",
 
-  "summary_header": "Ticket closed",
-  "summary_intro": "Here's the full lifecycle of what you just logged.",
-  "summary_return_button": "Return to Depot",
+  "concept_badge": "WHAT THIS TEACHES",
+  "concept_lead_in": "Here's the principle:",
+  "concept_return_button": "Return to Depot",
 
   "bhau_card_label": "Who's Alan?",
   "bhau_card_bio": "Shift lead, fifteen years on this floor. He won't do the hard part for you. He'll make sure you don't do it wrong.",

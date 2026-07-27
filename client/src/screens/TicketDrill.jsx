@@ -21,24 +21,43 @@ const PRIORITY_MATRIX = {
   Extensive: { Low: 'Medium', Medium: 'High', High: 'Critical', Critical: 'Critical' },
 };
 
-const STEP_NUMBER = { drill1: 1, drill2: 2, drill3: 3, drill4: 4, drill5: 5, drill6: 6 };
+const EVENT_FOR_TEACHES = {
+  category: 'CREATED',
+  priority: 'PRIORITY_CHANGED',
+  notify: 'NOTIFY_SET',
+  worklog: 'WORKLOG',
+  closure: 'CLOSED',
+};
 
-function Topbar() {
+const TEACHES_LABEL = {
+  category: 'Ticket Category',
+  priority: 'Impact & Urgency → Priority',
+  notify: 'Routing / Notify',
+  worklog: 'Work Log',
+  closure: 'Closure Code',
+};
+
+function SceneImage({ file, alt }) {
+  const [errored, setErrored] = useState(false);
+  if (errored) return null;
   return (
-    <div className="escalation-topbar">
-      <span className="escalation-topbar-icon">SD</span>
-      <span className="escalation-topbar-title">Service Desk</span>
-    </div>
+    <img
+      className="scene-image"
+      src={`/img/${file}`}
+      alt={alt}
+      onError={() => setErrored(true)}
+    />
   );
 }
 
-function StepLabel({ strings, step }) {
-  const n = STEP_NUMBER[step];
-  if (!n) return null;
-  return (
-    <p className="escalation-section-label" style={{ margin: '0 0 16px' }}>
-      {strings.drill_step_label.replace('{step}', n)}
-    </p>
+function ErrorBanner({ error, dark }) {
+  if (!error) return null;
+  return dark ? (
+    <p className="scene-error">{error}</p>
+  ) : (
+    <div className="corp-card" style={{ borderColor: '#e0483e' }}>
+      <p className="corp-card-body" style={{ margin: 0, color: '#e0483e' }}>{error}</p>
+    </div>
   );
 }
 
@@ -47,27 +66,26 @@ export default function TicketDrill() {
   const { roll, caseId, ticketId: resumeTicketId } = state;
   const strings = useStrings();
 
-  const [drill, setDrill] = useState(null); // { title, brief, drills, options }
-  const [step, setStep] = useState(null); // 'brief' | 'drill1'..'drill6' | 'summary'
-  const [ticket, setTicket] = useState(null); // { id, ... } once created/resumed
-  const [summary, setSummary] = useState(null); // { ticket, events } for the final screen
+  const [drill, setDrill] = useState(null); // { title, teaches, scene, drills, concept, options }
+  const [step, setStep] = useState(null); // 'scene' | 'drill' | 'concept'
+  const [ticket, setTicket] = useState(null); // { id } once created
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
-  // drill1 fields
+  // category fields
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
-  // drill2/4 fields
+  // priority fields
   const [impact, setImpact] = useState('');
   const [urgency, setUrgency] = useState('');
-  // drill3
+  // notify field
   const [notifyGroup, setNotifyGroup] = useState('');
-  // drill5
+  // worklog fields
   const [worklogDescription, setWorklogDescription] = useState('');
   const [worklogMinutes, setWorklogMinutes] = useState(15);
   const [firstResponse, setFirstResponse] = useState(false);
-  // drill6
+  // closure fields
   const [fcr, setFcr] = useState(false);
   const [requesterAck, setRequesterAck] = useState(true);
   const [closureCode, setClosureCode] = useState('');
@@ -79,35 +97,18 @@ export default function TicketDrill() {
       const d = await fetchDrill(caseId);
       if (cancelled) return;
       setDrill(d);
-      setDescription(d.drills.description_seed);
-      setWorklogDescription(d.drills.worklog_seed);
-      setClosureComments(d.drills.closure_comment_seed);
+      setDescription(d.drills.description_seed || '');
+      setWorklogDescription(d.drills.worklog_seed || '');
+      setClosureComments(d.drills.closure_comment_seed || '');
 
       if (resumeTicketId) {
         const { ticket: t, events } = await fetchTicket(resumeTicketId);
         if (cancelled) return;
-        setTicket(t);
-        setTitle(t.title);
-        setCategory(t.category);
-        setDescription(t.description || d.drills.description_seed);
-        setImpact(t.impact || '');
-        setUrgency(t.urgency || '');
-        setNotifyGroup(t.notify_group || '');
-
-        const priorityEvents = events.filter((e) => e.type === 'PRIORITY_CHANGED').length;
-        const hasNotify = !!t.notify_group;
-        const hasWorklog = events.some((e) => e.type === 'WORKLOG');
-        const isClosed = t.status === 'Closed';
-        let resumeStep;
-        if (priorityEvents === 0) resumeStep = 'drill2';
-        else if (!hasNotify) resumeStep = 'drill3';
-        else if (priorityEvents === 1) resumeStep = 'drill4';
-        else if (!hasWorklog) resumeStep = 'drill5';
-        else if (!isClosed) resumeStep = 'drill6';
-        else resumeStep = 'summary';
-        setStep(resumeStep);
+        setTicket({ id: t.id });
+        const alreadyTaught = events.some((e) => e.type === EVENT_FOR_TEACHES[d.teaches]);
+        setStep(alreadyTaught ? 'concept' : 'drill');
       } else {
-        setStep('brief');
+        setStep('scene');
       }
     }
     init();
@@ -120,8 +121,8 @@ export default function TicketDrill() {
   if (!drill || !step) {
     return (
       <Stage>
-        <div className="corp-shell">
-          <p className="corp-empty" style={{ padding: '32px' }}>{strings.loading_state}</p>
+        <div className="scene-stage">
+          <p className="scene-line">{strings.loading_state}</p>
         </div>
       </Stage>
     );
@@ -141,7 +142,29 @@ export default function TicketDrill() {
     }
   }
 
-  function handleDrill1() {
+  // Scene -> Drill. If this scenario's one interactive step isn't ticket
+  // creation itself, the ticket is bootstrapped silently here using the
+  // scenario's preset title/category/description — the trainee never sees
+  // this as a step, only the one mechanic this scenario teaches.
+  function handleSceneContinue() {
+    if (drill.teaches === 'category') {
+      setStep('drill');
+      return;
+    }
+    guard(async () => {
+      const { id } = await createTicket({
+        roll_number: roll,
+        case_id: caseId,
+        title: drill.drills.title,
+        category: drill.drills.category,
+        description: drill.drills.description_seed,
+      });
+      setTicket({ id });
+      setStep('drill');
+    });
+  }
+
+  function handleCategorySubmit() {
     guard(async () => {
       const { id } = await createTicket({
         roll_number: roll,
@@ -151,78 +174,95 @@ export default function TicketDrill() {
         description,
       });
       setTicket({ id });
-      setStep('drill2');
+      setStep('concept');
     });
   }
 
-  function handleDrill2() {
+  function handlePrioritySubmit() {
     guard(async () => {
       await setTicketPriority(ticket.id, impact, urgency);
-      setStep('drill3');
+      setStep('concept');
     });
   }
 
-  function handleDrill3() {
+  function handleNotifySubmit() {
     guard(async () => {
       await setTicketNotify(ticket.id, notifyGroup);
-      setStep('drill4');
+      setStep('concept');
     });
   }
 
-  function handleDrill4() {
-    guard(async () => {
-      await setTicketPriority(ticket.id, impact, urgency);
-      setStep('drill5');
-    });
-  }
-
-  function handleDrill5() {
+  function handleWorklogSubmit() {
     guard(async () => {
       await addTicketWorklog(ticket.id, worklogDescription, worklogMinutes, firstResponse);
-      setStep('drill6');
+      setStep('concept');
     });
   }
 
-  function handleDrill6() {
+  function handleClosureSubmit() {
     guard(async () => {
       await closeTicket(ticket.id, { fcr, requesterAck, closureCode, closureComments });
-      const full = await fetchTicket(ticket.id);
-      setSummary(full);
-      setStep('summary');
+      setStep('concept');
     });
+  }
+
+  // Scene and concept are the game-feel narrative beats — full dark stage,
+  // cinematic images, display type. The drill step is the real tool: a
+  // light corporate form island dropped into the same dark stage.
+  if (step === 'scene') {
+    return (
+      <Stage>
+        <div className="scene-stage">
+          <div className="scene-content">
+            <ErrorBanner error={error} dark />
+            <p className="scene-kicker">{strings.scene_header}</p>
+            <h1 className="scene-title">{drill.title}</h1>
+            {drill.scene.images.map((file) => (
+              <SceneImage key={file} file={file} alt={drill.title} />
+            ))}
+            {drill.scene.lines.map((line, i) => (
+              <p key={i} className="scene-line">{line}</p>
+            ))}
+            <button type="button" className="btn btn-primary" disabled={busy} onClick={handleSceneContinue}>
+              {strings.scene_continue_button}
+            </button>
+          </div>
+        </div>
+      </Stage>
+    );
+  }
+
+  if (step === 'concept') {
+    return (
+      <Stage>
+        <div className="scene-stage">
+          <div className="scene-content">
+            <p className="scene-kicker">{strings.concept_badge}</p>
+            <p className="scene-subkicker">{TEACHES_LABEL[drill.teaches]}</p>
+            <h1 className="scene-title">{drill.title}</h1>
+            <p className="scene-line" style={{ color: 'var(--paper)', fontWeight: 600 }}>{strings.concept_lead_in}</p>
+            <p className="concept-line">{drill.concept}</p>
+            <button type="button" className="btn btn-primary" onClick={gotoDepot}>
+              {strings.concept_return_button}
+            </button>
+          </div>
+        </div>
+      </Stage>
+    );
   }
 
   return (
     <Stage>
-      <div className="corp-shell">
-        <Topbar />
-        <div className="corp-container">
-          {error && (
-            <div className="corp-card" style={{ borderColor: '#e0483e' }}>
-              <p className="corp-card-body" style={{ margin: 0, color: '#e0483e' }}>{error}</p>
-            </div>
-          )}
+      <div className="scene-stage">
+        <div className="scene-content">
+          <ErrorBanner error={error} />
 
-          {step === 'brief' && (
-            <div className="corp-card">
-              <p className="corp-card-label">{strings.brief_header}</p>
-              <p className="corp-card-title">{drill.title}</p>
-              {drill.brief.map((line, i) => (
-                <p key={i} className="corp-card-body">{line}</p>
-              ))}
-              <button type="button" className="escalation-btn-primary" disabled={busy} onClick={() => setStep('drill1')}>
-                {strings.brief_continue_button}
-              </button>
-            </div>
-          )}
-
-          {step === 'drill1' && (
-            <div className="escalation-shell" style={{ margin: 0 }}>
-              <StepLabel strings={strings} step={step} />
-              <div className="escalation-header-row" style={{ padding: 0, marginBottom: '12px' }}>
-                <h2 className="escalation-title">{strings.drill1_header}</h2>
+          {drill.teaches === 'category' && (
+            <div className="escalation-shell">
+              <div className="escalation-header-row" style={{ padding: '18px 20px 12px' }}>
+                <h2 className="escalation-title">{drill.title}</h2>
               </div>
-              <div className="escalation-field" style={{ padding: 0 }}>
+              <div className="escalation-field">
                 <label className="escalation-label">{strings.drill1_title_label}</label>
                 <input
                   type="text"
@@ -232,7 +272,7 @@ export default function TicketDrill() {
                   onChange={(e) => setTitle(e.target.value)}
                 />
               </div>
-              <div className="escalation-field" style={{ padding: 0 }}>
+              <div className="escalation-field">
                 <label className="escalation-label">{strings.drill1_category_label}</label>
                 <select className="escalation-select" value={category} onChange={(e) => setCategory(e.target.value)}>
                   <option value="" disabled>-- Select Category --</option>
@@ -241,7 +281,7 @@ export default function TicketDrill() {
                   ))}
                 </select>
               </div>
-              <div className="escalation-field" style={{ padding: 0 }}>
+              <div className="escalation-field">
                 <label className="escalation-label">{strings.drill1_description_label}</label>
                 <textarea
                   className="escalation-textarea"
@@ -250,25 +290,26 @@ export default function TicketDrill() {
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
-              <button
-                type="button"
-                className="escalation-btn-primary"
-                disabled={busy || !title.trim() || !category}
-                onClick={handleDrill1}
-              >
-                {strings.drill1_continue_button}
-              </button>
+              <div className="escalation-actions">
+                <button
+                  type="button"
+                  className="escalation-btn-primary"
+                  disabled={busy || !title.trim() || !category}
+                  onClick={handleCategorySubmit}
+                >
+                  {strings.drill1_continue_button}
+                </button>
+              </div>
             </div>
           )}
 
-          {step === 'drill2' && (
-            <div className="escalation-shell" style={{ margin: 0 }}>
-              <StepLabel strings={strings} step={step} />
-              <div className="escalation-header-row" style={{ padding: 0, marginBottom: '12px' }}>
-                <h2 className="escalation-title">{strings.drill2_header}</h2>
+          {drill.teaches === 'priority' && (
+            <div className="escalation-shell">
+              <div className="escalation-header-row" style={{ padding: '18px 20px 12px' }}>
+                <h2 className="escalation-title">{drill.title}</h2>
               </div>
-              <div className="escalation-row" style={{ padding: 0 }}>
-                <div className="escalation-field" style={{ padding: 0 }}>
+              <div className="escalation-row">
+                <div className="escalation-field">
                   <label className="escalation-label">{strings.drill2_impact_label}</label>
                   <select className="escalation-select" value={impact} onChange={(e) => setImpact(e.target.value)}>
                     <option value="" disabled>-- Select --</option>
@@ -277,7 +318,7 @@ export default function TicketDrill() {
                     ))}
                   </select>
                 </div>
-                <div className="escalation-field" style={{ padding: 0 }}>
+                <div className="escalation-field">
                   <label className="escalation-label">{strings.drill2_urgency_label}</label>
                   <select className="escalation-select" value={urgency} onChange={(e) => setUrgency(e.target.value)}>
                     <option value="" disabled>-- Select --</option>
@@ -287,28 +328,29 @@ export default function TicketDrill() {
                   </select>
                 </div>
               </div>
-              <div className="escalation-field" style={{ padding: 0 }}>
+              <div className="escalation-field">
                 <label className="escalation-label">{strings.drill2_priority_label}</label>
                 <div className="escalation-priority-readout">{priority || strings.drill2_priority_placeholder}</div>
               </div>
-              <button
-                type="button"
-                className="escalation-btn-primary"
-                disabled={busy || !impact || !urgency}
-                onClick={handleDrill2}
-              >
-                {strings.drill2_continue_button}
-              </button>
+              <div className="escalation-actions">
+                <button
+                  type="button"
+                  className="escalation-btn-primary"
+                  disabled={busy || !impact || !urgency}
+                  onClick={handlePrioritySubmit}
+                >
+                  {strings.drill2_continue_button}
+                </button>
+              </div>
             </div>
           )}
 
-          {step === 'drill3' && (
-            <div className="escalation-shell" style={{ margin: 0 }}>
-              <StepLabel strings={strings} step={step} />
-              <div className="escalation-header-row" style={{ padding: 0, marginBottom: '12px' }}>
-                <h2 className="escalation-title">{strings.drill3_header}</h2>
+          {drill.teaches === 'notify' && (
+            <div className="escalation-shell">
+              <div className="escalation-header-row" style={{ padding: '18px 20px 12px' }}>
+                <h2 className="escalation-title">{drill.title}</h2>
               </div>
-              <div className="escalation-field" style={{ padding: 0 }}>
+              <div className="escalation-field">
                 <label className="escalation-label">{strings.drill3_notify_label}</label>
                 <select className="escalation-select" value={notifyGroup} onChange={(e) => setNotifyGroup(e.target.value)}>
                   <option value="" disabled>-- Select Group --</option>
@@ -317,60 +359,26 @@ export default function TicketDrill() {
                   ))}
                 </select>
               </div>
-              <button
-                type="button"
-                className="escalation-btn-primary"
-                disabled={busy || !notifyGroup}
-                onClick={handleDrill3}
-              >
-                {strings.drill3_continue_button}
-              </button>
+              <div className="escalation-actions">
+                <button
+                  type="button"
+                  className="escalation-btn-primary"
+                  disabled={busy || !notifyGroup}
+                  onClick={handleNotifySubmit}
+                >
+                  {strings.drill3_continue_button}
+                </button>
+              </div>
             </div>
           )}
 
-          {step === 'drill4' && (
-            <div className="escalation-shell" style={{ margin: 0 }}>
-              <StepLabel strings={strings} step={step} />
-              <div className="escalation-header-row" style={{ padding: 0, marginBottom: '4px' }}>
-                <h2 className="escalation-title">{strings.drill4_header}</h2>
+          {drill.teaches === 'worklog' && (
+            <div className="escalation-shell">
+              <div className="escalation-header-row" style={{ padding: '18px 20px 4px' }}>
+                <h2 className="escalation-title">{drill.title}</h2>
               </div>
-              <p className="corp-card-body" style={{ padding: 0 }}>{drill.drills.escalation_brief}</p>
-              <div className="escalation-row" style={{ padding: 0, marginTop: '12px' }}>
-                <div className="escalation-field" style={{ padding: 0 }}>
-                  <label className="escalation-label">{strings.drill4_impact_label}</label>
-                  <select className="escalation-select" value={impact} onChange={(e) => setImpact(e.target.value)}>
-                    {drill.options.impact.map((v) => (
-                      <option key={v} value={v}>{v}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="escalation-field" style={{ padding: 0 }}>
-                  <label className="escalation-label">{strings.drill4_urgency_label}</label>
-                  <select className="escalation-select" value={urgency} onChange={(e) => setUrgency(e.target.value)}>
-                    {drill.options.urgency.map((v) => (
-                      <option key={v} value={v}>{v}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="escalation-field" style={{ padding: 0 }}>
-                <label className="escalation-label">{strings.drill4_priority_label}</label>
-                <div className="escalation-priority-readout">{priority || strings.drill2_priority_placeholder}</div>
-              </div>
-              <button type="button" className="escalation-btn-primary" disabled={busy} onClick={handleDrill4}>
-                {strings.drill4_continue_button}
-              </button>
-            </div>
-          )}
-
-          {step === 'drill5' && (
-            <div className="escalation-shell" style={{ margin: 0 }}>
-              <StepLabel strings={strings} step={step} />
-              <div className="escalation-header-row" style={{ padding: 0, marginBottom: '4px' }}>
-                <h2 className="escalation-title">{strings.drill5_header}</h2>
-              </div>
-              <p className="corp-card-body" style={{ padding: 0 }}>{strings.drill5_intro}</p>
-              <div className="escalation-field" style={{ padding: 0 }}>
+              <p className="corp-card-body" style={{ padding: '0 20px' }}>{strings.drill5_intro}</p>
+              <div className="escalation-field">
                 <label className="escalation-label">{strings.drill5_description_label}</label>
                 <textarea
                   className="escalation-textarea"
@@ -380,8 +388,8 @@ export default function TicketDrill() {
                   onChange={(e) => setWorklogDescription(e.target.value)}
                 />
               </div>
-              <div className="escalation-row" style={{ padding: 0 }}>
-                <div className="escalation-field" style={{ padding: 0 }}>
+              <div className="escalation-row">
+                <div className="escalation-field">
                   <label className="escalation-label">{strings.drill5_time_label}</label>
                   <input
                     type="number"
@@ -392,46 +400,50 @@ export default function TicketDrill() {
                     onChange={(e) => setWorklogMinutes(parseInt(e.target.value, 10) || 0)}
                   />
                 </div>
-                <div className="escalation-field" style={{ padding: 0, display: 'flex', alignItems: 'center', gap: '8px', marginTop: '22px' }}>
-                  <input
-                    type="checkbox"
-                    id="first-response"
-                    checked={firstResponse}
-                    onChange={(e) => setFirstResponse(e.target.checked)}
-                  />
-                  <label htmlFor="first-response" className="escalation-label" style={{ margin: 0 }}>
-                    {strings.drill5_first_response_label}
+                <div className="escalation-field escalation-checkbox-field">
+                  <label className="escalation-checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={firstResponse}
+                      onChange={(e) => setFirstResponse(e.target.checked)}
+                    />
+                    <span>{strings.drill5_first_response_label}</span>
                   </label>
                 </div>
               </div>
-              <button
-                type="button"
-                className="escalation-btn-primary"
-                disabled={busy || !worklogDescription.trim()}
-                onClick={handleDrill5}
-              >
-                {strings.drill5_continue_button}
-              </button>
+              <div className="escalation-actions">
+                <button
+                  type="button"
+                  className="escalation-btn-primary"
+                  disabled={busy || !worklogDescription.trim()}
+                  onClick={handleWorklogSubmit}
+                >
+                  {strings.drill5_continue_button}
+                </button>
+              </div>
             </div>
           )}
 
-          {step === 'drill6' && (
-            <div className="escalation-shell" style={{ margin: 0 }}>
-              <StepLabel strings={strings} step={step} />
-              <div className="escalation-header-row" style={{ padding: 0, marginBottom: '12px' }}>
-                <h2 className="escalation-title">{strings.drill6_header}</h2>
+          {drill.teaches === 'closure' && (
+            <div className="escalation-shell">
+              <div className="escalation-header-row" style={{ padding: '18px 20px 12px' }}>
+                <h2 className="escalation-title">{drill.title}</h2>
               </div>
-              <div className="escalation-row" style={{ padding: 0 }}>
-                <div className="escalation-field" style={{ padding: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <input type="checkbox" id="fcr" checked={fcr} onChange={(e) => setFcr(e.target.checked)} />
-                  <label htmlFor="fcr" className="escalation-label" style={{ margin: 0 }}>{strings.drill6_fcr_label}</label>
+              <div className="escalation-row">
+                <div className="escalation-field escalation-checkbox-field">
+                  <label className="escalation-checkbox-label">
+                    <input type="checkbox" checked={fcr} onChange={(e) => setFcr(e.target.checked)} />
+                    <span>{strings.drill6_fcr_label}</span>
+                  </label>
                 </div>
-                <div className="escalation-field" style={{ padding: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <input type="checkbox" id="ack" checked={requesterAck} onChange={(e) => setRequesterAck(e.target.checked)} />
-                  <label htmlFor="ack" className="escalation-label" style={{ margin: 0 }}>{strings.drill6_ack_label}</label>
+                <div className="escalation-field escalation-checkbox-field">
+                  <label className="escalation-checkbox-label">
+                    <input type="checkbox" checked={requesterAck} onChange={(e) => setRequesterAck(e.target.checked)} />
+                    <span>{strings.drill6_ack_label}</span>
+                  </label>
                 </div>
               </div>
-              <div className="escalation-field" style={{ padding: 0 }}>
+              <div className="escalation-field">
                 <label className="escalation-label">{strings.drill6_closure_code_label}</label>
                 <select className="escalation-select" value={closureCode} onChange={(e) => setClosureCode(e.target.value)}>
                   <option value="" disabled>-- Select Closure Code --</option>
@@ -440,7 +452,7 @@ export default function TicketDrill() {
                   ))}
                 </select>
               </div>
-              <div className="escalation-field" style={{ padding: 0 }}>
+              <div className="escalation-field">
                 <label className="escalation-label">{strings.drill6_comments_label}</label>
                 <textarea
                   className="escalation-textarea"
@@ -450,60 +462,20 @@ export default function TicketDrill() {
                   onChange={(e) => setClosureComments(e.target.value)}
                 />
               </div>
-              <button
-                type="button"
-                className="escalation-btn-primary"
-                disabled={busy || !closureCode}
-                onClick={handleDrill6}
-              >
-                {strings.drill6_submit_button}
-              </button>
-            </div>
-          )}
-
-          {step === 'summary' && summary && (
-            <div className="corp-card">
-              <span className="corp-badge corp-badge-resolved">{strings.summary_header}</span>
-              <p className="corp-card-title">{drill.title}</p>
-              <p className="corp-card-body">{strings.summary_intro}</p>
-              <div className="corp-panel" style={{ padding: '12px 16px' }}>
-                {summary.events.map((e, i) => (
-                  <div className="corp-log-entry" key={i}>
-                    <p className="corp-log-title">{eventLabel(e)}</p>
-                    <p className="corp-log-outcome">{eventDetail(e)}</p>
-                  </div>
-                ))}
+              <div className="escalation-actions">
+                <button
+                  type="button"
+                  className="escalation-btn-primary"
+                  disabled={busy || !closureCode}
+                  onClick={handleClosureSubmit}
+                >
+                  {strings.drill6_submit_button}
+                </button>
               </div>
-              <button type="button" className="escalation-btn-primary" onClick={gotoDepot}>
-                {strings.summary_return_button}
-              </button>
             </div>
           )}
         </div>
       </div>
     </Stage>
   );
-}
-
-function eventLabel(e) {
-  switch (e.type) {
-    case 'CREATED': return 'Ticket raised';
-    case 'PRIORITY_CHANGED': return 'Priority set';
-    case 'NOTIFY_SET': return 'Routed';
-    case 'WORKLOG': return 'Work Log added';
-    case 'CLOSED': return 'Ticket closed';
-    default: return e.type;
-  }
-}
-
-function eventDetail(e) {
-  const d = e.detail;
-  switch (e.type) {
-    case 'CREATED': return `${d.category} — ${d.title}`;
-    case 'PRIORITY_CHANGED': return `${d.impact} impact, ${d.urgency} urgency → ${d.priority} priority`;
-    case 'NOTIFY_SET': return d.notify_group;
-    case 'WORKLOG': return `${d.description} (${d.time_spent_minutes} min${d.first_response ? ', first response' : ''})`;
-    case 'CLOSED': return `${d.closure_code} — ${d.closure_comments}`;
-    default: return '';
-  }
 }

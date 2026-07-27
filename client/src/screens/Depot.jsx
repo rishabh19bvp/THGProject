@@ -1,12 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useGame } from '../state/machine';
 import { useStrings } from '../state/strings';
-import { fetchDepot, getLang, setLang } from '../state/api';
+import { fetchDepot } from '../state/api';
 import { isMuted, setMuted } from '../state/audio';
 import Stage from '../components/Stage';
 import RotateGate, { usePortrait } from '../components/RotateGate';
 import BeginGate from '../components/BeginGate';
-import { ClipboardCheckIcon } from '../components/icons';
 
 const EMPLOYEE_ID_KEY = 'quietfloor:employeeId';
 
@@ -64,12 +63,12 @@ function SignIn({ strings, onSignedIn }) {
 // No sequential unlock — every case is visible and playable in any order,
 // any number of times. Status just tells the trainee where they left off.
 function CaseCard({ c, onPlay, onResume }) {
-  if (c.status === 'PENDING_LOG') {
+  if (c.status === 'OPEN') {
     return (
       <div className="corp-card">
-        <span className="corp-badge corp-badge-pending">Awaiting debrief</span>
+        <span className="corp-badge corp-badge-pending">Ticket open</span>
         <p className="corp-card-title">{c.title}</p>
-        <button type="button" className="escalation-btn-primary" onClick={() => onResume(c.case_id)}>
+        <button type="button" className="escalation-btn-primary" onClick={() => onResume(c.case_id, c.ticket_id)}>
           Resume
         </button>
       </div>
@@ -97,26 +96,6 @@ function CompletedCard({ c, onPlay }) {
   );
 }
 
-function ShiftLogPanel({ depot, strings }) {
-  return (
-    <div className="corp-panel">
-      <p className="corp-panel-heading">{strings.shift_log_header}</p>
-      {depot.log.length === 0 ? (
-        <p className="corp-empty">{strings.shift_log_empty}</p>
-      ) : (
-        depot.log.map((entry) => (
-          <div className="corp-log-entry" key={entry.case_id}>
-            <p className="corp-log-title">{entry.title}</p>
-            <p className="corp-log-choice">You chose {entry.option_chosen}</p>
-            {entry.justification && <p className="corp-log-justification">"{entry.justification}"</p>}
-            <p className="corp-log-outcome">{entry.outcome_line}</p>
-          </div>
-        ))
-      )}
-    </div>
-  );
-}
-
 function HelpCard({ strings, mentorLine }) {
   const [open, setOpen] = useState(false);
   return (
@@ -132,8 +111,7 @@ function HelpCard({ strings, mentorLine }) {
   );
 }
 
-function DepotHome({ depot, strings, onPlay, onResume, onSignOut, muted, onToggleMute, lang, onToggleLang }) {
-  const [showLog, setShowLog] = useState(false);
+function DepotHome({ depot, strings, onPlay, onResume, onSignOut, muted, onToggleMute }) {
   const mentorLine = weeklyMentorLine(strings.bhau_depot_lines);
   const available = depot.cases.filter((c) => c.status !== 'COMPLETED');
   const completed = depot.cases.filter((c) => c.status === 'COMPLETED');
@@ -149,9 +127,6 @@ function DepotHome({ depot, strings, onPlay, onResume, onSignOut, muted, onToggl
           </button>
           <button type="button" className="corp-icon-btn" onClick={onToggleMute}>
             {muted ? strings.mute_off_icon : strings.mute_on_icon}
-          </button>
-          <button type="button" className="corp-icon-btn" onClick={onToggleLang}>
-            {lang === 'mr' ? 'मराठी' : 'EN'}
           </button>
         </div>
       </div>
@@ -173,15 +148,6 @@ function DepotHome({ depot, strings, onPlay, onResume, onSignOut, muted, onToggl
           </>
         )}
 
-        <div className="corp-drawer-tabs">
-          <button type="button" className="corp-drawer-tab" onClick={() => setShowLog((v) => !v)}>
-            <ClipboardCheckIcon size={16} />
-            {strings.shift_log_drawer_tab}
-          </button>
-        </div>
-
-        {showLog && <ShiftLogPanel depot={depot} strings={strings} />}
-
         <HelpCard strings={strings} mentorLine={mentorLine} />
       </div>
     </>
@@ -189,17 +155,16 @@ function DepotHome({ depot, strings, onPlay, onResume, onSignOut, muted, onToggl
 }
 
 export default function Depot() {
-  const { state, setRoll, startVN, gotoRevealDirect } = useGame();
+  const { state, setRoll, startDrill } = useGame();
   const strings = useStrings();
   const isPortrait = usePortrait();
-  // If we're arriving back from the VN (still fullscreen from that gesture),
+  // If we're arriving back from a drill (still fullscreen from that gesture),
   // don't make the trainee tap through the gate again — only a real fresh
   // page load has no fullscreen element yet.
   const [began, setBegan] = useState(() => !!document.fullscreenElement);
   const [signedIn, setSignedIn] = useState(false);
   const [depot, setDepot] = useState(null);
   const [muted, setMutedState] = useState(isMuted());
-  const [lang, setLangState] = useState(getLang());
 
   const refreshDepot = useCallback(() => {
     if (!state.roll) return;
@@ -230,16 +195,6 @@ export default function Depot() {
     setMutedState(next);
   }
 
-  // A full reload keeps this simple and correct: every fetch (strings, case,
-  // vn-script, reveal) reads the new language straight off localStorage, so
-  // there's no in-flight state to reconcile across a language flip.
-  function toggleLang() {
-    const next = lang === 'mr' ? 'en' : 'mr';
-    setLang(next);
-    setLangState(next);
-    window.location.reload();
-  }
-
   function handleNotYou() {
     localStorage.removeItem(EMPLOYEE_ID_KEY);
     setRoll('');
@@ -256,8 +211,8 @@ export default function Depot() {
   }
 
   // Browsers never remember fullscreen/orientation-lock across a fresh load,
-  // so this tap-to-enter gate runs every time, same as the VN — regardless
-  // of whether the Employee ID is already persisted.
+  // so this tap-to-enter gate runs every time, regardless of whether the
+  // Employee ID is already persisted.
   if (!began) {
     return (
       <Stage>
@@ -279,13 +234,11 @@ export default function Depot() {
           <DepotHome
             depot={depot}
             strings={strings}
-            onPlay={(caseId) => startVN(caseId)}
-            onResume={(caseId) => gotoRevealDirect(state.roll, caseId)}
+            onPlay={(caseId) => startDrill(caseId)}
+            onResume={(caseId, ticketId) => startDrill(caseId, { ticketId })}
             onSignOut={handleNotYou}
             muted={muted}
             onToggleMute={toggleMute}
-            lang={lang}
-            onToggleLang={toggleLang}
           />
         </div>
       )}

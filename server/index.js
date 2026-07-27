@@ -1,393 +1,37 @@
 const path = require('path');
 const fs = require('fs');
 const express = require('express');
-const { db, statements } = require('./db');
-const { getVariant } = require('./variant');
+const { statements } = require('./db');
 
 const PORT = process.env.PORT || 4000;
 const TEACHER_SECRET = process.env.TEACHER_SECRET || 'quietfloor-secret';
 
 const CASES_PATH = path.join(__dirname, 'data', 'cases.json');
 const STRINGS_PATH = path.join(__dirname, 'data', 'strings.json');
-const STRINGS_MR_PATH = path.join(__dirname, 'data', 'strings.mr.json');
 const cases = JSON.parse(fs.readFileSync(CASES_PATH, 'utf-8'));
 const strings = JSON.parse(fs.readFileSync(STRINGS_PATH, 'utf-8'));
-const stringsMr = fs.existsSync(STRINGS_MR_PATH)
-  ? JSON.parse(fs.readFileSync(STRINGS_MR_PATH, 'utf-8'))
-  : {};
 const casesById = new Map(cases.map((c) => [c.id, c]));
+const casesInOrder = [...cases].sort((a, b) => a.id - b.id);
 
 const app = express();
 app.use(express.json());
-
-function resolveLang(req) {
-  return req.query.lang === 'en' ? 'en' : 'mr';
-}
-
-function localizeTitle(caseObj, lang) {
-  if (lang === 'mr' && caseObj.title_mr) return caseObj.title_mr;
-  return caseObj.title;
-}
-
-// this deployment ships no Marathi translations (server/data/strings.mr.json
-// and each variant's own translations block are both absent) — every field
-// falls back to English, exactly as designed for partial-coverage content.
-function localizeVariant(v, lang) {
-  if (lang !== 'mr' || !v) return v;
-  const mr = v.translations && v.translations.mr;
-  if (!mr) return v;
-  return {
-    ...v,
-    dispatch: mr.dispatch || v.dispatch,
-    scene: mr.scene || v.scene,
-    situation_panel: mr.situation_panel || v.situation_panel,
-    assessments: v.assessments.map((a, i) => ({
-      id: a.id,
-      label: (mr.assessments && mr.assessments[i] && mr.assessments[i].label) || a.label,
-      result: (mr.assessments && mr.assessments[i] && mr.assessments[i].result) || a.result,
-      image: a.image,
-    })),
-    bhau_scene_line: mr.bhau_scene_line || v.bhau_scene_line,
-    decision_intro: mr.decision_intro || v.decision_intro,
-    options: v.options.map((o, i) => ({
-      id: o.id,
-      text: (mr.options && mr.options[i] && mr.options[i].text) || o.text,
-    })),
-    halt_prelude: mr.halt_prelude || v.halt_prelude,
-    halt_line: mr.halt_line || v.halt_line,
-    reveal: v.reveal
-      ? {
-          setup: (mr.reveal && mr.reveal.setup) || v.reveal.setup,
-          outcomes: (mr.reveal && mr.reveal.outcomes) || v.reveal.outcomes,
-          concept: (mr.reveal && mr.reveal.concept) || v.reveal.concept,
-        }
-      : v.reveal,
-  };
-}
-
-// this deployment ships every halt case with exactly one variant and no
-// round-robin assignment (build spec §2.2) — resolve straight to it instead
-// of running the roll-derived getVariant() mod-3 pick, which would 404 on
-// two-thirds of employee IDs once the "exactly 3 variants" validator was
-// relaxed to "at least 1".
-function resolveVariant(caseObj, kind, roll) {
-  if (kind === 'practice') return 1;
-  if (caseObj.variants.length === 1) return caseObj.variants[0].variant;
-  return getVariant(roll);
-}
-
-// case-independent copy (Meera's frame text) — zero string literals in client components
-app.get('/api/strings', (req, res) => {
-  const lang = resolveLang(req);
-  res.json(lang === 'mr' ? { ...strings, ...stringsMr } : strings);
-});
-
-// case titles, filterable by kind (teacher dashboard; default halt, unchanged from Phase 1)
-app.get('/api/cases-list', (req, res) => {
-  const kind = req.query.kind || 'halt';
-  res.json(
-    cases
-      .filter((c) => (c.kind || 'halt') === kind)
-      .map((c) => ({ id: c.id, title: c.title }))
-  );
-});
 
 function stripHtml(str) {
   return String(str).replace(/<[^>]*>/g, '');
 }
 
-function findVariant(caseObj, variantNum) {
-  return caseObj.variants.find((v) => v.variant === variantNum);
-}
+// Known-good enums for every drill field — server never trusts free-form
+// values from the client for anything that drives priority/reporting.
+const CATEGORY_OPTIONS = ['Service Request', 'Access Request', 'Standard Change', 'Major Incident'];
+const IMPACT_OPTIONS = ['Low', 'Medium', 'High', 'Extensive'];
+const URGENCY_OPTIONS = ['Low', 'Medium', 'High', 'Critical'];
+const NOTIFY_OPTIONS = ['WMS Engineering', 'Floor Operations', 'Peak Readiness Owner', 'No one — closing as routine'];
+const CLOSURE_OPTIONS = ['Resolved — Fixed', 'Resolved — No Fault Found', 'Closed — Duplicate', 'Cancelled'];
 
-// 6.1 — playable case, zero reveal content
-app.get('/api/case/:id', (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const roll = req.query.roll || '';
-  const lang = resolveLang(req);
-  const caseObj = casesById.get(id);
-  if (!caseObj) return res.status(404).json({ error: 'case not found' });
-
-  const kind = caseObj.kind || 'halt';
-  const variant = resolveVariant(caseObj, kind, roll);
-  const v = localizeVariant(findVariant(caseObj, variant), lang);
-  if (!v) return res.status(404).json({ error: 'variant not found' });
-
-  res.json({
-    id: caseObj.id,
-    title: localizeTitle(caseObj, lang),
-    image: caseObj.image,
-    kind,
-    topic_id: caseObj.topic_id || null,
-    resolveImmediately: !!caseObj.resolveImmediately,
-    variant: v.variant,
-    dispatch: v.dispatch,
-    scene: v.scene,
-    situation_panel: v.situation_panel,
-    assessments: v.assessments.map((a) => ({ id: a.id, label: a.label, result: a.result, image: a.image || null })),
-    bhau_scene_line: v.bhau_scene_line,
-    decision_intro: v.decision_intro,
-    options: v.options.map((o) => ({ id: o.id, text: o.text })),
-    halt_line: v.halt_line || null,
-    halt_prelude: v.halt_prelude || null,
-  });
-});
-
-// VN vertical slice (vn_vertical_slice_spec.md) — reshapes existing case+variant
-// content into a linear beat script. Same zero-reveal-content rule as /api/case.
-function splitIntoSentences(text) {
-  return text
-    .split(/(?<=[.!?])\s+(?=[A-Z"])/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-function buildVnBeats(caseObj, v, kind, lang) {
-  const beats = [];
-
-  v.dispatch.forEach((line) => {
-    beats.push({ type: 'dispatch', text: line });
-  });
-
-  // scene_image_overrides (optional, keyed by 0-based sentence index) lets a
-  // case attach extra shots mid-scene — e.g. a close-up once the narration
-  // zooms in on the anomaly — beyond the single establishing shot every case
-  // already gets via caseObj.image on sentence 0. Purely data-driven so more
-  // images/situations slot in later without touching this code.
-  splitIntoSentences(v.scene).forEach((sentence, i) => {
-    const beat = { type: 'narration', scene: true, text: sentence };
-    if (i === 0) beat.bg = caseObj.image;
-    else if (v.scene_image_overrides && v.scene_image_overrides[i]) beat.bg = v.scene_image_overrides[i];
-    beats.push(beat);
-  });
-
-  beats.push({
-    type: 'assessment_menu',
-    options: v.assessments.map((a) => ({ id: a.id, label: a.label, result: a.result, image: a.image || null })),
-  });
-
-  beats.push({
-    type: 'speech',
-    speaker: 'Alan',
-    portrait: 'alan_neutral.jpg',
-    text: v.bhau_scene_line,
-  });
-
-  beats.push({
-    type: 'decision',
-    timed: true,
-    prompt: v.decision_intro,
-    options: v.options.map((o) => ({ id: o.id, text: o.text })),
-  });
-
-  // no probe/justification step — the "why" is captured on the escalation
-  // form's own Description field, not asked twice in-scene.
-
-  // practice cases resolve immediately (no halt gate, no reveal wait — same
-  // rule as the classic flow's kind==='practice' branch) so there's no
-  // cliffhanger content to show; the client jumps straight to Reveal instead.
-  if (kind === 'halt') {
-    beats.push({
-      type: 'halt',
-      bg: 'floor_wide.jpg',
-      prelude: v.halt_prelude,
-      text: v.halt_line,
-    });
-  }
-
-  return beats;
-}
-
-app.get('/api/vn-script/:id', (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  const roll = req.query.roll || '';
-  const lang = resolveLang(req);
-  const caseObj = casesById.get(id);
-  if (!caseObj) return res.status(404).json({ error: 'case not found' });
-
-  const kind = caseObj.kind || 'halt';
-  const variant = resolveVariant(caseObj, kind, roll);
-  const v = localizeVariant(findVariant(caseObj, variant), lang);
-  if (!v) return res.status(404).json({ error: 'variant not found' });
-
-  res.json({
-    id: caseObj.id,
-    title: localizeTitle(caseObj, lang),
-    kind,
-    variant: v.variant,
-    situation_panel: v.situation_panel,
-    beats: buildVnBeats(caseObj, v, kind, lang),
-  });
-});
-
-// which cases this roll has already submitted (for Entry "handed over" state)
-app.get('/api/submissions/:roll', (req, res) => {
-  const roll = req.params.roll;
-  const rows = db
-    .prepare('SELECT case_id FROM submissions WHERE roll_number = ?')
-    .all(roll);
-  res.json({ submitted_case_ids: rows.map((r) => r.case_id) });
-});
-
-const haltCasesInOrder = cases
-  .filter((c) => (c.kind || 'halt') === 'halt')
-  .sort((a, b) => (a.topic_id || a.id) - (b.topic_id || b.id));
-
-// GET /api/depot?roll=XX — one round trip renders the whole home screen.
-// No sequential unlock: every case is visible and playable in any order, any
-// number of times. Per-case status for this roll:
-//   AVAILABLE   — never submitted (or being replayed after completion)
-//   PENDING_LOG — decision submitted, escalation form not yet reached
-//   COMPLETED   — both the decision and its escalation form are logged
-app.get('/api/depot', (req, res) => {
-  const roll = req.query.roll || '';
-  const lang = resolveLang(req);
-  if (!roll) return res.status(400).json({ error: 'roll required' });
-
-  const casesOut = haltCasesInOrder.map((c) => {
-    const submission = statements.getSubmission.get(roll, c.id);
-    let status = 'AVAILABLE';
-    if (submission) {
-      // a replay bumps submission.created_at (see updateSubmission) — only an
-      // escalation logged AT OR AFTER that counts as closing THIS attempt, so
-      // a stale escalation row from a prior playthrough can't fake COMPLETED.
-      const escalation = statements.getLatestEscalationSubmission.get(roll, c.id);
-      status = escalation && escalation.created_at >= submission.created_at ? 'COMPLETED' : 'PENDING_LOG';
-    }
-    return { case_id: c.id, title: localizeTitle(c, lang), status };
-  });
-
-  const submissions = statements.getSubmissionsForRoll.all(roll);
-  const log = submissions
-    .map((s) => {
-      const caseObj = casesById.get(s.case_id);
-      if (!caseObj) return null;
-      const kind = caseObj.kind || 'halt';
-      const variantObj = localizeVariant(
-        caseObj.variants.find((v) => v.variant === s.variant) || caseObj.variants[0],
-        lang
-      );
-      return {
-        case_id: caseObj.id,
-        title: localizeTitle(caseObj, lang),
-        kind,
-        option_chosen: s.option_chosen,
-        justification: s.justification,
-        outcome_line: variantObj.reveal.outcomes[s.option_chosen] || '',
-        created_at: s.created_at,
-      };
-    })
-    .filter(Boolean);
-
-  res.json({ cases: casesOut, log });
-});
-
-// 6.2 — submit
-app.post('/api/submit', (req, res) => {
-  const {
-    roll_number,
-    case_id,
-    assessments_taken,
-    option_chosen,
-    justification,
-    time_to_decision_ms,
-  } = req.body || {};
-
-  if (!roll_number || typeof roll_number !== 'string') {
-    return res.status(400).json({ error: 'roll_number required' });
-  }
-  const caseId = parseInt(case_id, 10);
-  if (!casesById.has(caseId)) {
-    return res.status(400).json({ error: 'invalid case_id' });
-  }
-  if (!['A', 'B', 'C'].includes(option_chosen)) {
-    return res.status(400).json({ error: 'option_chosen must be A, B, or C' });
-  }
-  const caseObj = casesById.get(caseId);
-  const kind = caseObj.kind || 'halt';
-  const cleanJustification = stripHtml(justification || '').trim().slice(0, 500);
-  const variant = resolveVariant(caseObj, kind, roll_number);
-  const timeMs = Math.min(Math.max(parseInt(time_to_decision_ms, 10) || 0, 0), 300000);
-  const assessmentsJson = JSON.stringify(
-    Array.isArray(assessments_taken) ? assessments_taken : []
-  );
-
-  const params = {
-    roll_number,
-    case_id: caseId,
-    variant,
-    assessments_taken: assessmentsJson,
-    option_chosen,
-    justification: cleanJustification,
-    time_to_decision_ms: timeMs,
-    kind, // server-derived from cases.json, never trusted from the client
-  };
-
-  const existing = statements.getSubmission.get(roll_number, caseId);
-  if (existing) {
-    statements.updateSubmission.run(params);
-  } else {
-    statements.insertSubmission.run(params);
-  }
-
-  res.json({ ok: true });
-});
-
-// 6.3 — halt revisit counter
-app.post('/api/halt-revisit', (req, res) => {
-  const { roll_number, case_id } = req.body || {};
-  if (!roll_number || !case_id) return res.status(400).json({ error: 'roll_number and case_id required' });
-  statements.incrementHaltRevisit.run(roll_number, parseInt(case_id, 10));
-  res.json({ ok: true });
-});
-
-// 6.4 — reveal. Corporate self-paced model: a trainee's own submission is
-// what unlocks their reveal, immediately — no separate facilitator gate.
-// Practice cases (none exist yet) resolve immediately regardless.
-app.get('/api/reveal/:caseId', (req, res) => {
-  const caseId = parseInt(req.params.caseId, 10);
-  const roll = req.query.roll || '';
-  const lang = resolveLang(req);
-  const caseObj = casesById.get(caseId);
-  if (!caseObj) return res.status(404).json({ error: 'case not found' });
-
-  const isPractice = (caseObj.kind || 'halt') === 'practice';
-  const submission = statements.getSubmission.get(roll, caseId);
-  if (!isPractice && !submission) {
-    return res.json({ locked: true });
-  }
-
-  const matrix = caseObj.variants.map((raw) => {
-    const v = localizeVariant(raw, lang);
-    return {
-      variant: v.variant,
-      setup: v.reveal.setup,
-      outcomes: v.reveal.outcomes,
-      concept: v.reveal.concept,
-    };
-  });
-
-  res.json({
-    locked: false,
-    matrix,
-    your_choice: submission
-      ? { variant: submission.variant, option_chosen: submission.option_chosen }
-      : null,
-  });
-});
-
-// escalation form (build spec §5) — appears after every reveal, regardless of
-// which narrative option was chosen. Mirrors /api/submit's validation posture:
-// category/impact/urgency/notify_group are checked against known enums,
-// never trusted as free-form from the client.
-const ESCALATION_CATEGORIES = ['Service Request', 'Access Request', 'Standard Change', 'Major Incident'];
-const ESCALATION_LEVELS = ['Low', 'Medium', 'High', 'Extensive'];
-const ESCALATION_URGENCY = ['Low', 'Medium', 'High', 'Critical'];
-const ESCALATION_NOTIFY = ['WMS Engineering', 'Floor Operations', 'Peak Readiness Owner', 'No one — closing as routine'];
-
-// Impact x Urgency -> Priority. No real ITSM logic needed (build spec §5.2) —
-// mirrored in client/src/screens/EscalationForm.jsx for the live preview;
-// this copy is the one that actually gets persisted.
+// Impact x Urgency -> Priority. Admin-configured in a real ServiceDesk Plus
+// instance (Admin > Helpdesk Customizer > Priority Matrix) — this is THG's
+// own matrix, mirrored in client/src/screens/TicketDrill.jsx for the live
+// preview; this copy is the one that actually gets persisted.
 const PRIORITY_MATRIX = {
   Low: { Low: 'Low', Medium: 'Low', High: 'Medium', Critical: 'Medium' },
   Medium: { Low: 'Low', Medium: 'Medium', High: 'Medium', Critical: 'High' },
@@ -395,18 +39,75 @@ const PRIORITY_MATRIX = {
   Extensive: { Low: 'Medium', Medium: 'High', High: 'Critical', Critical: 'Critical' },
 };
 
-app.post('/api/escalation-submit', (req, res) => {
-  const {
-    roll_number,
-    case_id,
-    category,
-    impact,
-    urgency,
-    notify_group,
-    description,
-    narrative_option_chosen,
-  } = req.body || {};
+// case-independent copy
+app.get('/api/strings', (req, res) => {
+  res.json(strings);
+});
 
+app.get('/api/cases-list', (req, res) => {
+  res.json(casesInOrder.map((c) => ({ id: c.id, title: c.title })));
+});
+
+// the situation brief + drill script for a case — everything the client
+// needs to run the 6-step ticket lifecycle, plus the option lists so
+// dropdowns always match server-side validation.
+app.get('/api/drill/:caseId', (req, res) => {
+  const caseId = parseInt(req.params.caseId, 10);
+  const caseObj = casesById.get(caseId);
+  if (!caseObj) return res.status(404).json({ error: 'case not found' });
+
+  res.json({
+    id: caseObj.id,
+    title: caseObj.title,
+    brief: caseObj.brief,
+    drills: caseObj.drills,
+    options: {
+      category: CATEGORY_OPTIONS,
+      impact: IMPACT_OPTIONS,
+      urgency: URGENCY_OPTIONS,
+      notify: NOTIFY_OPTIONS,
+      closure: CLOSURE_OPTIONS,
+    },
+  });
+});
+
+// GET /api/depot?roll=XX — case list with per-roll status, derived from each
+// case's most recent ticket (append-only: a replay is a new row, never an
+// update to an old one, so a stale ticket can never masquerade as current).
+//   AVAILABLE  — no ticket yet (or the last one was closed; replay makes a new one)
+//   OPEN       — a ticket exists and is still open (mid-drill, resumable)
+//   COMPLETED  — the latest ticket is closed
+app.get('/api/depot', (req, res) => {
+  const roll = req.query.roll || '';
+  if (!roll) return res.status(400).json({ error: 'roll required' });
+
+  const casesOut = casesInOrder.map((c) => {
+    const ticket = statements.getLatestTicketForCase.get(roll, c.id);
+    let status = 'AVAILABLE';
+    let ticketId = null;
+    if (ticket) {
+      status = ticket.status === 'Closed' ? 'COMPLETED' : 'OPEN';
+      ticketId = ticket.id;
+    }
+    return { case_id: c.id, title: c.title, status, ticket_id: ticketId };
+  });
+
+  res.json({ cases: casesOut });
+});
+
+function requireTicket(req, res) {
+  const id = parseInt(req.params.id, 10);
+  const ticket = statements.getTicket.get(id);
+  if (!ticket) {
+    res.status(404).json({ error: 'ticket not found' });
+    return null;
+  }
+  return ticket;
+}
+
+// drill 1 — raise a new ticket
+app.post('/api/ticket', (req, res) => {
+  const { roll_number, case_id, title, category, description } = req.body || {};
   if (!roll_number || typeof roll_number !== 'string') {
     return res.status(400).json({ error: 'roll_number required' });
   }
@@ -414,45 +115,131 @@ app.post('/api/escalation-submit', (req, res) => {
   if (!casesById.has(caseId)) {
     return res.status(400).json({ error: 'invalid case_id' });
   }
-  if (!ESCALATION_CATEGORIES.includes(category)) {
+  if (!CATEGORY_OPTIONS.includes(category)) {
     return res.status(400).json({ error: 'invalid category' });
   }
-  if (!ESCALATION_LEVELS.includes(impact)) {
-    return res.status(400).json({ error: 'invalid impact' });
-  }
-  if (!ESCALATION_URGENCY.includes(urgency)) {
-    return res.status(400).json({ error: 'invalid urgency' });
-  }
-  if (!ESCALATION_NOTIFY.includes(notify_group)) {
-    return res.status(400).json({ error: 'invalid notify_group' });
-  }
-  if (narrative_option_chosen && !['A', 'B', 'C'].includes(narrative_option_chosen)) {
-    return res.status(400).json({ error: 'invalid narrative_option_chosen' });
-  }
-
-  // priority is derived server-side from the validated impact/urgency pair,
-  // never trusted as a client-computed value.
-  const priority = PRIORITY_MATRIX[impact][urgency];
+  const cleanTitle = stripHtml(title || '').trim().slice(0, 200);
   const cleanDescription = stripHtml(description || '').trim().slice(0, 1000);
+  if (!cleanTitle) return res.status(400).json({ error: 'title required' });
 
-  statements.insertEscalationSubmission.run({
+  const result = statements.insertTicket.run({
     roll_number,
     case_id: caseId,
+    title: cleanTitle,
     category,
-    impact,
-    urgency,
-    priority,
-    notify_group,
     description: cleanDescription,
-    narrative_option_chosen: narrative_option_chosen || null,
+  });
+  const ticketId = result.lastInsertRowid;
+  statements.insertEvent.run({
+    ticket_id: ticketId,
+    type: 'CREATED',
+    detail: JSON.stringify({ title: cleanTitle, category, description: cleanDescription }),
   });
 
-  res.json({ ok: true, priority });
+  res.json({ id: ticketId });
 });
 
-// 6.5 — teacher endpoints. Under the self-paced model these are read-only
-// aggregate views for a facilitator to watch cohort-wide stats — they no
-// longer gate anything a trainee sees.
+// drills 2 & 4 — set (or re-set, as the situation develops) Impact/Urgency;
+// Priority is always derived server-side from the validated pair, never
+// trusted as a client-computed value.
+app.post('/api/ticket/:id/priority', (req, res) => {
+  const ticket = requireTicket(req, res);
+  if (!ticket) return;
+  const { impact, urgency } = req.body || {};
+  if (!IMPACT_OPTIONS.includes(impact)) return res.status(400).json({ error: 'invalid impact' });
+  if (!URGENCY_OPTIONS.includes(urgency)) return res.status(400).json({ error: 'invalid urgency' });
+
+  const priority = PRIORITY_MATRIX[impact][urgency];
+  const previousPriority = ticket.priority || null;
+  statements.setTicketPriority.run({ id: ticket.id, impact, urgency, priority });
+  statements.insertEvent.run({
+    ticket_id: ticket.id,
+    type: 'PRIORITY_CHANGED',
+    detail: JSON.stringify({ impact, urgency, priority, previous_priority: previousPriority }),
+  });
+
+  res.json({ priority });
+});
+
+// drill 3 — route/notify
+app.post('/api/ticket/:id/notify', (req, res) => {
+  const ticket = requireTicket(req, res);
+  if (!ticket) return;
+  const { notify_group } = req.body || {};
+  if (!NOTIFY_OPTIONS.includes(notify_group)) return res.status(400).json({ error: 'invalid notify_group' });
+
+  statements.setTicketNotify.run({ id: ticket.id, notify_group });
+  statements.insertEvent.run({
+    ticket_id: ticket.id,
+    type: 'NOTIFY_SET',
+    detail: JSON.stringify({ notify_group }),
+  });
+
+  res.json({ ok: true });
+});
+
+// drill 5 — add a WorkLog (a technician's own time-tracked work entry,
+// distinct from a Note — this is the real ServiceDesk Plus distinction)
+app.post('/api/ticket/:id/worklog', (req, res) => {
+  const ticket = requireTicket(req, res);
+  if (!ticket) return;
+  const { description, time_spent_minutes, first_response } = req.body || {};
+  const cleanDescription = stripHtml(description || '').trim().slice(0, 1000);
+  if (!cleanDescription) return res.status(400).json({ error: 'description required' });
+  const minutes = Math.min(Math.max(parseInt(time_spent_minutes, 10) || 0, 0), 600);
+
+  statements.insertEvent.run({
+    ticket_id: ticket.id,
+    type: 'WORKLOG',
+    detail: JSON.stringify({
+      description: cleanDescription,
+      time_spent_minutes: minutes,
+      first_response: !!first_response,
+    }),
+  });
+
+  res.json({ ok: true });
+});
+
+// drill 6 — close with a closure code
+app.post('/api/ticket/:id/close', (req, res) => {
+  const ticket = requireTicket(req, res);
+  if (!ticket) return;
+  const { fcr, requester_ack, closure_code, closure_comments } = req.body || {};
+  if (!CLOSURE_OPTIONS.includes(closure_code)) return res.status(400).json({ error: 'invalid closure_code' });
+  const cleanComments = stripHtml(closure_comments || '').trim().slice(0, 1000);
+
+  statements.closeTicket.run({
+    id: ticket.id,
+    closure_code,
+    closure_comments: cleanComments,
+    fcr: fcr ? 1 : 0,
+    requester_ack: requester_ack ? 1 : 0,
+  });
+  statements.insertEvent.run({
+    ticket_id: ticket.id,
+    type: 'CLOSED',
+    detail: JSON.stringify({ closure_code, closure_comments: cleanComments, fcr: !!fcr, requester_ack: !!requester_ack }),
+  });
+
+  res.json({ ok: true });
+});
+
+// full ticket + its event timeline — used to resume mid-drill and to render
+// the completion summary.
+app.get('/api/ticket/:id', (req, res) => {
+  const ticket = requireTicket(req, res);
+  if (!ticket) return;
+  const events = statements.getEventsForTicket.all(ticket.id).map((e) => ({
+    type: e.type,
+    detail: JSON.parse(e.detail),
+    created_at: e.created_at,
+  }));
+  res.json({ ticket, events });
+});
+
+// 6.5 — teacher endpoints. Read-only aggregate view for a facilitator; no
+// gating, matches the corporate self-paced model.
 function requireSecret(req, res, next) {
   if (req.params.secret !== TEACHER_SECRET) {
     return res.status(403).json({ error: 'forbidden' });
@@ -465,55 +252,24 @@ app.get('/api/teacher/:secret/summary/:caseId', requireSecret, (req, res) => {
   const caseObj = casesById.get(caseId);
   if (!caseObj) return res.status(404).json({ error: 'case not found' });
 
-  const rows = statements.getSubmissionsForCase.all(caseId);
-  const optionSplit = { A: 0, B: 0, C: 0 };
-  const variantOptionGrid = {};
-  const justificationsByOption = { A: [], B: [], C: [] };
-  let totalTime = 0;
-  let totalHaltRevisits = 0;
-
-  rows.forEach((r) => {
-    optionSplit[r.option_chosen] += 1;
-    const key = `${r.variant}`;
-    if (!variantOptionGrid[key]) variantOptionGrid[key] = { A: 0, B: 0, C: 0 };
-    variantOptionGrid[key][r.option_chosen] += 1;
-    justificationsByOption[r.option_chosen].push({
-      roll_number: r.roll_number,
-      variant: r.variant,
-      justification: r.justification,
-      resubmitted: !!r.resubmitted,
-    });
-    totalTime += r.time_to_decision_ms;
-    totalHaltRevisits += r.halt_revisits;
+  const tickets = statements.getTicketsForCase.all(caseId);
+  const closed = tickets.filter((t) => t.status === 'Closed');
+  const categorySplit = {};
+  const closureSplit = {};
+  tickets.forEach((t) => {
+    categorySplit[t.category] = (categorySplit[t.category] || 0) + 1;
+  });
+  closed.forEach((t) => {
+    closureSplit[t.closure_code] = (closureSplit[t.closure_code] || 0) + 1;
   });
 
   res.json({
     case_id: caseId,
     title: caseObj.title,
-    submissions_count: rows.length,
-    option_split: optionSplit,
-    variant_option_grid: variantOptionGrid,
-    justifications_by_option: justificationsByOption,
-    avg_time_to_decision_ms: rows.length ? Math.round(totalTime / rows.length) : 0,
-    total_halt_revisits: totalHaltRevisits,
-  });
-});
-
-// project-mode matrix (teacher only) — for displaying the outcome matrix to
-// a group during a live discussion; always viewable, not gated on anything.
-app.get('/api/teacher/:secret/reveal/:caseId', requireSecret, (req, res) => {
-  const caseId = parseInt(req.params.caseId, 10);
-  const caseObj = casesById.get(caseId);
-  if (!caseObj) return res.status(404).json({ error: 'case not found' });
-
-  res.json({
-    locked: false,
-    matrix: caseObj.variants.map((v) => ({
-      variant: v.variant,
-      setup: v.reveal.setup,
-      outcomes: v.reveal.outcomes,
-      concept: v.reveal.concept,
-    })),
+    tickets_count: tickets.length,
+    closed_count: closed.length,
+    category_split: categorySplit,
+    closure_split: closureSplit,
   });
 });
 
